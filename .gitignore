@@ -183,7 +183,3 @@ Thumbs.db
 # Backups
 *.swp
 *.bak
-
-# TOTP stuff
-json/backups/
-json/secrets.json
