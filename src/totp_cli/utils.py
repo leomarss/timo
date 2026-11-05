@@ -142,7 +142,7 @@ def backup_time(backup_dir, name):
         return os.path.getmtime(os.path.join(backup_dir, name))
 
 
-def fzf_args(python_path, preview_script):
+def fzf_args(python_path, preview_script, prompt="Select OTP: "):
     """fzf command for lines of the form "<index>\t<label>".
 
     --with-nth hides the index from display and search (fzf matches only the
@@ -152,7 +152,7 @@ def fzf_args(python_path, preview_script):
     """
     return [
         "fzf",
-        "--prompt=Select OTP: ",
+        f"--prompt={prompt}",
         "--delimiter=\t",
         "--with-nth=2..",
         "--preview", f"{python_path} {preview_script} {{1}}",

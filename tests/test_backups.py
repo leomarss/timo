@@ -113,13 +113,13 @@ def test_restore_rejects_bad_or_missing_names(cli, name):
 def test_remove_rejects_traversal(cli, tmp_path):
     victim = tmp_path / "victim.txt"
     victim.write_text("keep")
-    code, out, err = cli.run("--backup", "--remove", "../../victim.txt")
+    code, out, err = cli.run("--remove-backups", "../../victim.txt")
     assert "! Skipped Invalid backup name" in err
     assert victim.read_text() == "keep"
 
 
 def test_remove_all_without_backup_dir(cli):
-    code, out, err = cli.run("--backup", "--remove-all")
+    code, out, err = cli.run("--remove-all-backups")
     assert code == 0 and "No backups to remove" in err
 
 
@@ -127,7 +127,24 @@ def test_remove_all_deletes_only_backups(cli):
     cli.store(ACC)
     cli.run("--backup")
     (cli.backups / "notes.txt").write_text("mine")
-    code, out, _ = cli.run("--backup", "--remove-all", answers=["y"])
+    code, out, _ = cli.run("--remove-all-backups", answers=["y"])
     assert code == 0
     assert list_backups(str(cli.backups)) == []
     assert (cli.backups / "notes.txt").exists()
+
+
+def test_remove_backups_by_name(cli):
+    cli.store(ACC)
+    cli.run("--backup")
+    name = list_backups(str(cli.backups))[0]
+    code, out, _ = cli.run("--remove-backups", name)
+    assert code == 0 and f"✓ Removed  {name}" in out
+    assert list_backups(str(cli.backups)) == []
+
+
+def test_remove_all_backups_can_be_declined(cli):
+    cli.store(ACC)
+    cli.run("--backup")
+    code, _, err = cli.run("--remove-all-backups", answers=[""])
+    assert code == 0 and "Nothing deleted" in err
+    assert len(list_backups(str(cli.backups))) == 1

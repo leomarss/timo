@@ -79,13 +79,11 @@ BACKUPS_HEADERS = ("Backup", "Age")
 AGE_JUST_NOW = "just now"
 AGE_UNITS = ((60, "minute"), (3600, "hour"), (86400, "day"), (7 * 86400, "week"),
              (30 * 86400, "month"), (365 * 86400, "year"))
-NAMES_AND_REMOVE_ALL = "Give backup names or --remove-all, not both"
 NO_BACKUPS_TO_REMOVE = "No backups to remove"
 PROMPT_REMOVE_ALL = "This will delete ALL backups. Are you sure? [y/N] "
 NOTHING_DELETED = "Nothing deleted"
 REMOVED_ALL = "Removed {backups}"
 REMOVED = "Removed"
-REMOVE_NEEDS_NAMES = "Give at least one backup name to remove (or --remove-all)"
 SKIPPED_BACKUP = "Skipped {error}"
 BACKUP_NOT_FOUND = "Backup not found: {name}"
 BACKUP_NOT_FOUND_HINT = "See the available backups with: otpcli --list-backups"
@@ -123,3 +121,11 @@ ALREADY_PRESENT = "{name} is already present"
 NOTHING_ADDED = "Nothing added"
 ADDED = "Added {name}"
 REPLACED = "Replaced {name}"
+
+# --- remove ------------------------------------------------------------------------
+FZF_REMOVE_PROMPT = "Remove account: "
+PROMPT_REMOVE_NUMBER = "Number of the account to remove (Enter to cancel): "
+BAD_NUMBER = "Type a number from 1 to {count}"
+PROMPT_REMOVE_ACCOUNT = "Remove {name}? [y/N] "
+NOTHING_REMOVED = "Nothing removed"
+REMOVED_ACCOUNT = "Removed {name}"

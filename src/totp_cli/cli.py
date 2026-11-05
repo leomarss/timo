@@ -38,8 +38,9 @@ ACTIONS = {
     "remember": ("--remember", commands.cmd_remember),
     "list-backups": ("--list-backups", commands.cmd_backup_list),
     "restore": ("--restore", commands.cmd_backup_restore),
-    "remove": ("--remove", commands.cmd_backup_remove),
-    "remove-all": ("--remove-all", commands.cmd_backup_remove),
+    "remove": ("--remove", commands.cmd_remove),
+    "remove-backups": ("--remove-backups", commands.cmd_backup_remove),
+    "remove-all-backups": ("--remove-all-backups", commands.cmd_backup_remove_all),
     "backup": ("--backup", commands.cmd_backup_create),
     "get": (None, commands.cmd_get),
 }
@@ -97,6 +98,7 @@ def build_parser():
     acts.add_argument("--editor", metavar="CMD", help="with --edit: editor to use (default: $EDITOR, then vi/nano/vim)")
     acts.add_argument("--initialize", action="store_true", help="import accounts from a Google Authenticator export")
     acts.add_argument("--add", action="store_true", help="add one account from a setup QR code, otpauth:// link or secret key")
+    acts.add_argument("--remove", action="store_true", help="pick an account and remove it (asks first)")
     acts.add_argument("--passwd", action="store_true", help="change the passphrase")
     acts.add_argument("--forget", action="store_true", help="remove the passphrase from your keychain and stop saving it")
     acts.add_argument("--remember", action="store_true", help="save the passphrase in your keychain again")
@@ -106,8 +108,8 @@ def build_parser():
                          help="create a backup (with --edit: back up before saving changes)")
     backups.add_argument("--list-backups", action="store_true", help="show available backups")
     backups.add_argument("--restore", metavar="NAME", help="restore a backup (current secrets are backed up first)")
-    backups.add_argument("--remove", nargs="+", metavar="NAME", help="delete backups (also: --backup --remove NAME...)")
-    backups.add_argument("--remove-all", action="store_true", help="delete all backups (asks first)")
+    backups.add_argument("--remove-backups", nargs="+", metavar="NAME", help="delete backups")
+    backups.add_argument("--remove-all-backups", action="store_true", help="delete all backups (asks first)")
     return parser
 
 
@@ -119,8 +121,8 @@ def _chosen_actions(args):
         value = getattr(args, flag[2:].replace("-", "_"))
         if value not in (None, False):
             chosen.append(name)
-    # --backup is a modifier of --edit, --remove and --remove-all
-    if "backup" in chosen and any(a in chosen for a in ("edit", "remove", "remove-all")):
+    # --backup is a modifier of --edit
+    if "backup" in chosen and "edit" in chosen:
         chosen.remove("backup")
     return chosen
 
@@ -151,8 +153,7 @@ def parse(argv):
     # names the command handlers expect
     args.action = action
     args.func = ACTIONS[action][1]
-    args.names = args.remove or []
-    args.all = args.remove_all
+    args.names = args.remove_backups or []
     args.name = args.restore
     return args
 

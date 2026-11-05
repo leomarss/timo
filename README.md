@@ -81,14 +81,15 @@ otpcli -- <words...>              Search for words that start with "-"
 --edit --editor=<CMD>             Use a specific editor (e.g. --editor=vim)
 --initialize                      Import from a Google Authenticator export
 --add                             Add one account (setup QR code, otpauth:// link or secret key)
+--remove                          Pick an account and remove it (asks first)
 --passwd                          Change the passphrase
 --forget                          Remove the passphrase from the keychain and stop saving it
 --remember                        Save it in the keychain again on the next unlock
 
 --backup                          Create a backup
 --list-backups                    Show available backups
---backup --remove <NAMES...>      Delete backups
---backup --remove-all             Delete all backups (asks first)
+--remove-backups <NAMES...>       Delete backups
+--remove-all-backups              Delete all backups (asks first)
 --restore <NAME>                  Restore a backup (current secrets are backed up first)
 
 --version                         Show the installed version
@@ -106,6 +107,10 @@ Every option starts with `-` or `--`, and plain words are always a search, so an
 `otpcli --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, otpcli asks for the issuer and account name.
 
 The current code is shown and copied right away, since most sites ask for one to finish the setup. If the account already exists with a different key (you reset 2FA on that site), otpcli asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
+
+### Removing an account
+
+`otpcli --remove` lets you pick the account with `fzf`. Without `fzf`, it prints a numbered list and you type the number (Enter cancels). Either way it asks `Remove GitHub (me)? [y/N]` before deleting anything, and the previous secrets are backed up first, so `otpcli --restore` can bring the account back.
 
 ### Editing
 

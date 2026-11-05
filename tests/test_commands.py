@@ -31,9 +31,9 @@ TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
     (["--forget"], "forget"),
     (["--remember"], "remember"),
     (["--backup"], "backup"),
-    (["--backup", "--remove", "a", "b"], "remove"),
-    (["--remove", "a"], "remove"),
-    (["--backup", "--remove-all"], "remove-all"),
+    (["--remove"], "remove"),
+    (["--remove-backups", "a", "b"], "remove-backups"),
+    (["--remove-all-backups"], "remove-all-backups"),
     (["--list-backups"], "list-backups"),
     (["--restore", "x"], "restore"),
 ])
@@ -55,7 +55,9 @@ def test_query_words_are_kept():
     ["--list", "--no-copy"], ["--stats", "--clear-after", "5"],  # get-only options
     ["--editor", "vim"],  # option without its action
     ["--migrate"], ["--yes"],  # removed
-    ["--remove-all", "--remove", "x"],
+    ["--remove-all-backups", "--remove-backups", "x"], ["--remove-backups"],
+    ["--remove", "github"],  # --remove picks from a list, it takes no words
+    ["--remove-all"], ["--backup", "--remove-all-backups"],  # old backup flags
     ["--clear-after", "-1"], ["--clear-after", "soon"],
 ])
 def test_bad_combinations_are_rejected(argv):

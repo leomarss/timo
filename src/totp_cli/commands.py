@@ -232,6 +232,19 @@ def cmd_get(args, ctx):
         raise Abort(msg.NO_FZF, msg.NO_FZF_HINT, msg.NO_FZF_HINT_NARROW,
                     *(f"  {label(acc)}" for _, acc in matches))
 
+    index = _pick_with_fzf(ctx, accounts, matches)
+    if index is None:
+        ui.note(msg.NOTHING_PICKED)
+        return 1
+    _copy_and_print(accounts[index], args)
+    return 0
+
+
+def _pick_with_fzf(ctx, accounts, matches, prompt="Select OTP: "):
+    """Let the user pick one of matches [(index, account)] with fzf.
+
+    Returns the picked account's index in accounts, or None if they pressed Esc.
+    """
     if sys.stdout.isatty():
         sys.stdout.write("\33]0;TOTP CLI - Terminal One-Time Password\a")
         sys.stdout.flush()
@@ -243,20 +256,19 @@ def cmd_get(args, ctx):
     lines = "\n".join(f"{i}\t{label(acc)}" for i, acc in matches)
     try:
         result = subprocess.run(
-            fzf_args(ctx.python_path, ctx.preview_script),
+            fzf_args(ctx.python_path, ctx.preview_script, prompt),
             input=lines, text=True, capture_output=True, check=True, env=env,
         )
     except subprocess.CalledProcessError:
-        ui.note(msg.NOTHING_PICKED)
-        return 1
+        return None
 
     index_str, _, _ = result.stdout.rstrip("\n").partition("\t")
     try:
-        acc = accounts[int(index_str)]
+        index = int(index_str)
+        accounts[index]
     except (ValueError, IndexError):
         raise Abort(msg.PICKED_UNKNOWN)
-    _copy_and_print(acc, args)
-    return 0
+    return index
 
 
 # --- list / stats / watch ----------------------------------------------------------
@@ -385,24 +397,21 @@ def cmd_backup_list(args, ctx):
     return 0
 
 
-def cmd_backup_remove(args, ctx):
-    if args.all:
-        if args.names:
-            raise Abort(msg.NAMES_AND_REMOVE_ALL)
-        files = list_backups(ctx.backup_dir)
-        if not files:
-            ui.note(msg.NO_BACKUPS_TO_REMOVE)
-            return 0
-        if input(msg.PROMPT_REMOVE_ALL).strip().lower() != "y":
-            ui.note(msg.NOTHING_DELETED)
-            return 0
-        for f in files:
-            os.remove(os.path.join(ctx.backup_dir, f))
-        ui.ok(msg.REMOVED_ALL.format(backups=plural(len(files), "backup")))
+def cmd_backup_remove_all(args, ctx):
+    files = list_backups(ctx.backup_dir)
+    if not files:
+        ui.note(msg.NO_BACKUPS_TO_REMOVE)
         return 0
+    if input(msg.PROMPT_REMOVE_ALL).strip().lower() != "y":
+        ui.note(msg.NOTHING_DELETED)
+        return 0
+    for f in files:
+        os.remove(os.path.join(ctx.backup_dir, f))
+    ui.ok(msg.REMOVED_ALL.format(backups=plural(len(files), "backup")))
+    return 0
 
-    if not args.names:
-        raise Abort(msg.REMOVE_NEEDS_NAMES)
+
+def cmd_backup_remove(args, ctx):
     for name in args.names:
         try:
             path = resolve_backup_path(ctx.backup_dir, name)
@@ -558,6 +567,7 @@ def cmd_import(args, ctx):
     import_into_vault(ctx, collected)
     return 0
 
+
 # --- add ---------------------------------------------------------------------------
 
 def _read_single_account():
@@ -623,3 +633,42 @@ def cmd_add(args, ctx):
     ui.ok(done)
     return 0
 
+
+# --- remove ------------------------------------------------------------------------
+
+def _pick_by_number(accounts):
+    """Show a numbered list and ask for a number; returns an index or None (Enter)."""
+    if ui.is_terminal():
+        ui.table(msg.LIST_HEADERS,
+                 [(i, acc["issuer"], acc["name"]) for i, acc in enumerate(accounts, 1)], right={0})
+    else:
+        width = len(str(len(accounts)))
+        for i, acc in enumerate(accounts, 1):
+            ui.out(f"{i:>{width}}  {label(acc)}")
+    while True:
+        answer = input(msg.PROMPT_REMOVE_NUMBER).strip()
+        if not answer:
+            return None
+        if answer.isdigit() and 1 <= int(answer) <= len(accounts):
+            return int(answer) - 1
+        ui.warn(msg.BAD_NUMBER.format(count=len(accounts)))
+
+
+def cmd_remove(args, ctx):
+    vault, accounts = open_vault(ctx)
+    if not accounts:
+        raise Abort(msg.NO_ACCOUNTS, msg.NO_SECRETS_HINT)
+
+    if _find_fzf():
+        index = _pick_with_fzf(ctx, accounts, list(enumerate(accounts)), prompt=msg.FZF_REMOVE_PROMPT)
+    else:
+        index = _pick_by_number(accounts)
+    if index is None or input(msg.PROMPT_REMOVE_ACCOUNT.format(name=label(accounts[index]))).strip().lower() != "y":
+        ui.note(msg.NOTHING_REMOVED)
+        return 0
+
+    removed = accounts[index]
+    backup = save_with_backup(ctx, vault, accounts[:index] + accounts[index + 1:])
+    ui.ok(msg.PREVIOUS_BACKED_UP, _rel(backup))
+    ui.ok(msg.REMOVED_ACCOUNT.format(name=label(removed)))
+    return 0
