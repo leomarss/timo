@@ -16,6 +16,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 - Encrypted backups, restore and passphrase change
 - Import from Google Authenticator QR (via image or webcam)
 - Add single accounts from a site's 2FA setup QR code, `otpauth://` link or secret key
+- Export accounts to another app, as setup QR codes or `otpauth://` links
 
 ## 📦 Requirements
 
@@ -89,6 +90,9 @@ See your accounts
 
 Add and change accounts
   --initialize                import a Google Authenticator export
+  --export                    export accounts matching WORDS (none: all) to another app
+      --format FORMAT         setup-qr: one QR code per account (default in a terminal), or uri
+      --output FILE           write otpauth:// links to FILE (readable only by you)
   --add                       add one account (setup QR code, otpauth:// link or secret key)
   --remove                    pick an account and remove it (asks first)
   --edit                      edit the decrypted accounts in your editor
@@ -129,6 +133,16 @@ Yes/no questions take a single key: `y` or `n`, Enter for the default (the capit
 `otpcli --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page) or with the webcam (leave the image path empty), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, otpcli asks for the issuer and account name.
 
 The current code is shown and copied right away, since most sites ask for one to finish the setup. If the key is already there under any label, nothing changes. If the account already exists with a different key (you reset 2FA on that site), otpcli asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
+
+### Exporting
+
+`otpcli --export` moves your accounts to another authenticator app or password manager. Add search words to export only some (`otpcli --export github`).
+
+- **In a terminal**, it shows one setup QR code per account, the same kind a site shows when you turn on 2FA, so any authenticator app can scan it. Press Enter for the next one, `n` to stop. The codes are drawn on a separate screen that is cleared when otpcli finishes, so they don't stay in your scrollback.
+- **`--format uri`** gives one `otpauth://` link per line, which apps like Aegis and Ente Auth import as a text file in one go, and which most password managers accept in their TOTP field. Piped or redirected (`otpcli --export > accounts.txt`), this is the default. In a terminal, otpcli asks before showing secret keys on screen.
+- **`--output FILE`** writes the links to a new file readable only by you. It never overwrites an existing file.
+
+Exported links and files are **not encrypted**: delete them once the other app has imported the accounts.
 
 ### Removing an account
 

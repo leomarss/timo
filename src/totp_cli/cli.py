@@ -20,6 +20,8 @@ FOOTER = (
     'To search for a word that starts with "-": otpcli -- -word',
 )
 
+EXPORT_FORMATS = ("setup-qr", "uri")
+
 # action name -> (flag, handler)
 ACTIONS = {
     "list": ("--list", commands.cmd_list),
@@ -27,6 +29,7 @@ ACTIONS = {
     "watch": ("--watch", commands.cmd_watch),
     "edit": ("--edit", commands.cmd_edit),
     "initialize": ("--initialize", commands.cmd_import),
+    "export": ("--export", commands.cmd_export),
     "add": ("--add", commands.cmd_add),
     "passwd": ("--passwd", commands.cmd_passwd),
     "forget": ("--forget", commands.cmd_forget),
@@ -146,6 +149,11 @@ def build_parser():
 
     parser.section("Add and change accounts")
     option("--initialize", action="store_true", help="import a Google Authenticator export")
+    export = option("--export", action="store_true",
+                    help="export accounts matching WORDS (none: all) to another app")
+    option("--format", choices=EXPORT_FORMATS, metavar="FORMAT", under=export,
+           help="setup-qr: one QR code per account (default in a terminal), or uri")
+    option("--output", metavar="FILE", under=export, help="write otpauth:// links to FILE (readable only by you)")
     option("--add", action="store_true", help="add one account (setup QR code, otpauth:// link or secret key)")
     option("--remove", action="store_true", help="pick an account and remove it (asks first)")
     edit = option("--edit", action="store_true", help="edit the decrypted accounts in your editor")
@@ -200,12 +208,16 @@ def parse(argv):
     action = chosen[0] if chosen else "get"
 
     if action != "get":
-        if args.query:
+        if args.query and action != "export":
             parser.error(f"search words can't be combined with {ACTIONS[action][0]}")
         if args.no_copy or args.clear_after is not None:
             parser.error("--no-copy and --clear-after only apply when copying a code")
     if args.editor is not None and action != "edit":
         parser.error("--editor only works with --edit")
+    if (args.format is not None or args.output is not None) and action != "export":
+        parser.error("--format and --output only work with --export")
+    if args.output is not None and args.format == "setup-qr":
+        parser.error("--output only works with --format uri")
 
     # names the command handlers expect
     args.action = action

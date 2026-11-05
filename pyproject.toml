@@ -16,6 +16,7 @@ dependencies = [
     "protobuf>=4.21,<7",
     "pyotp>=2.9",
     "pyperclip>=1.9",
+    "segno>=1.5",
 ]
 
 [project.optional-dependencies]

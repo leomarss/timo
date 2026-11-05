@@ -7,7 +7,7 @@ otpauth://totp/GitHub:me@example.com?secret=JBSW...&issuer=GitHub
 import base64
 import binascii
 import re
-from urllib.parse import parse_qsl, unquote, urlsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit
 
 PERIOD = 30  # the only code lifetime otpcli supports
 BASE32 = re.compile(r"[A-Z2-7]+")
@@ -42,10 +42,13 @@ def parse_otpauth_uri(uri):
         raise ValueError(f"Unknown code type {kind!r} in the link (expected totp)")
 
     label = unquote(parts.path.lstrip("/"))
-    label_issuer, sep, name = label.partition(":")
-    if not sep:
-        label_issuer, name = "", label
     params = {key.lower(): value for key, value in parse_qsl(parts.query)}
+    if params.get("issuer") and label.startswith(params["issuer"] + ":"):
+        label_issuer, name = params["issuer"], label[len(params["issuer"]) + 1:]  # issuer may hold a ':'
+    else:
+        label_issuer, sep, name = label.partition(":")
+        if not sep:
+            label_issuer, name = "", label
 
     if "secret" not in params:
         raise ValueError("The link has no secret key")
@@ -64,3 +67,21 @@ def parse_otpauth_uri(uri):
         "algorithm": params.get("algorithm", "SHA1").upper(),
         "digits": digits,
     }
+
+
+def to_otpauth_uri(account):
+    """The otpauth:// link for an account, as a site's 2FA setup QR code holds it.
+
+    algorithm and digits are left out when they are the defaults (SHA1, 6), as
+    some apps ignore or reject them; the period is always the default.
+    """
+    issuer, name = account["issuer"], account["name"]
+    label = f"{quote(issuer, safe='')}:{quote(name, safe='')}" if issuer else quote(name, safe="")
+    params = {"secret": account["secret"]}
+    if issuer:
+        params["issuer"] = issuer
+    if account.get("algorithm", "SHA1").upper() != "SHA1":
+        params["algorithm"] = account["algorithm"].upper()
+    if int(account.get("digits", 6)) != 6:
+        params["digits"] = account["digits"]
+    return f"otpauth://totp/{label}?{urlencode(params, quote_via=quote)}"

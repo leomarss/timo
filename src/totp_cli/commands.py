@@ -215,10 +215,13 @@ def _find_fzf():
     return shutil.which("fzf") is not None
 
 
-def cmd_get(args, ctx):
-    _, accounts = open_vault(ctx)
-    query = [q.lower() for q in args.query]
-    # keep each account's position so duplicate labels stay distinct
+def _matching(accounts, words):
+    """[(index, account)] for the accounts whose label contains every word.
+
+    Keeps each account's position so duplicate labels stay distinct. Aborts
+    when nothing matches.
+    """
+    query = [q.lower() for q in words]
     matches = [
         (i, acc) for i, acc in enumerate(accounts)
         if all(q in f"{acc['issuer']} {acc['name']}".lower() for q in query)
@@ -226,7 +229,13 @@ def cmd_get(args, ctx):
     if not matches:
         if not accounts:
             raise Abort(msg.NO_ACCOUNTS, msg.NO_SECRETS_HINT)
-        raise Abort(msg.NO_MATCH.format(query=" ".join(args.query)))
+        raise Abort(msg.NO_MATCH.format(query=" ".join(words)))
+    return matches
+
+
+def cmd_get(args, ctx):
+    _, accounts = open_vault(ctx)
+    matches = _matching(accounts, args.query)
     if len(matches) == 1:
         _copy_and_print(matches[0][1], args)
         return 0
@@ -659,6 +668,82 @@ def cmd_add(args, ctx):
     if backup:
         ui.ok(msg.PREVIOUS_BACKED_UP, _rel(backup))
     ui.ok(done)
+    return 0
+
+
+# --- export ------------------------------------------------------------------------
+
+ALT_SCREEN_ON = "\033[?1049h"  # QR codes go on the alternate screen, so they don't stay
+ALT_SCREEN_OFF = "\033[?1049l"  # in the scrollback once otpcli is done
+CLEAR_SCREEN = "\033[2J\033[H"
+
+
+def cmd_export(args, ctx):
+    from totp_cli.otpauth import to_otpauth_uri
+
+    _, accounts = open_vault(ctx)
+    chosen = [acc for _, acc in _matching(accounts, args.query)]
+    found = plural(len(chosen), "account")
+    fmt = args.format or ("uri" if args.output or not ui.is_terminal() else "setup-qr")
+
+    if fmt == "setup-qr":
+        if not ui.is_terminal():
+            raise Abort(msg.EXPORT_NEEDS_TERMINAL, msg.EXPORT_NEEDS_TERMINAL_HINT)
+        return _show_setup_qrs(chosen)
+
+    links = "".join(to_otpauth_uri(acc) + "\n" for acc in chosen)
+    if args.output:
+        _write_export(os.path.expanduser(args.output), links)
+        ui.ok(msg.EXPORTED_TO.format(accounts=found), args.output)
+        ui.warn(msg.EXPORT_NOT_ENCRYPTED)
+        return 0
+    if ui.is_terminal() and not ui.confirm(msg.PROMPT_SHOW_SECRETS.format(accounts=found)):
+        ui.note(msg.NOTHING_EXPORTED)
+        return 0
+    sys.stdout.write(links)
+    return 0
+
+
+def _write_export(path, text):
+    folder = os.path.dirname(os.path.abspath(path))
+    if not os.path.isdir(folder):  # don't create folders on the way
+        raise Abort(msg.EXPORT_NO_FOLDER.format(path=folder))
+    try:
+        fileio.write_new_private(path, text.encode())
+    except FileExistsError:
+        raise Abort(msg.EXPORT_EXISTS.format(path=path), msg.EXPORT_EXISTS_HINT)
+    except OSError as e:
+        raise Abort(msg.EXPORT_WRITE_FAILED.format(path=path, error=e.strerror or e))
+
+
+def _show_setup_qrs(accounts):
+    from totp_cli import qr
+    from totp_cli.otpauth import to_otpauth_uri
+
+    total = len(accounts)
+    shown = 0
+    sys.stdout.write(ALT_SCREEN_ON)
+    try:
+        for index, acc in enumerate(accounts, 1):
+            sys.stdout.write(CLEAR_SCREEN)
+            title = msg.QR_EXPORT_TITLE.format(name=label(acc), index=index, total=total)
+            ui.out(ui.paint(title, ui.BOLD))
+            ui.out()
+            ui.out("\n".join(qr.terminal_lines(to_otpauth_uri(acc))))
+            ui.out()
+            ui.out(ui.paint(msg.QR_EXPORT_HINT, ui.DIM))
+            shown += 1
+            if index == total:
+                input(msg.PROMPT_DONE_SCANNING)
+            elif not ui.confirm(msg.PROMPT_NEXT_ACCOUNT, default=True):
+                break
+    finally:
+        sys.stdout.write(ALT_SCREEN_OFF)
+        sys.stdout.flush()
+    if shown == total:
+        ui.ok(msg.EXPORTED_QR.format(accounts=plural(total, "account")))
+    else:
+        ui.ok(msg.EXPORTED_SOME_QR.format(shown=shown, total=total))
     return 0
 
 
