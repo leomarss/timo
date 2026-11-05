@@ -58,7 +58,7 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
         print("\nTOTP CLI - Account Stats\n")
         print(f"Total accounts: {total}")
         print(f"Unique issuers: {len(issuer_counts)}\n")
-        max_len = max(len(issuer) for issuer in issuer_counts)
+        max_len = max((len(issuer) for issuer in issuer_counts), default=0)
         for issuer, count in issuer_counts.most_common():
             print(f"  {issuer:<{max_len}} -> {count}")
         sys.exit(0)
@@ -113,7 +113,7 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
                 print("No backups removed.")
             sys.exit(0)
         if "--remove-all" in argv:
-            files = [f for f in os.listdir(backup_dir) if os.path.isfile(os.path.join(backup_dir, f))]
+            files = list_backups(backup_dir)
             if not files:
                 print("No backups to remove.")
                 sys.exit(0)
@@ -147,6 +147,9 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
             restored = restore_backup(restore_name, backup_dir, json_path)
         except ValueError as e:
             print(e)
+            sys.exit(1)
+        except FileNotFoundError:
+            print(f"Backup not found: {restore_name}. Use --list-backups to see available backups.")
             sys.exit(1)
         print(f"Backup restored from: {restored}")
         sys.exit(0)
