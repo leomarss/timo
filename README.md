@@ -11,6 +11,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 - Auto-copy OTP to clipboard
 - Preview OTP with color-coded expiration
 - Secrets encrypted at rest with your passphrase (scrypt + AES-256-GCM)
+- Passphrase remembered in your OS keychain, so you type it once per machine
 - Runs as your normal user, no `sudo`
 - Encrypted backups, restore and passphrase change
 - Import from Google Authenticator QR (via image)
@@ -64,7 +65,9 @@ Then add your accounts:
 otpcli import
 ```
 
-The first time, you choose a passphrase. It encrypts your secrets and is asked for on every run. **If you forget it, the secrets cannot be recovered**, so keep your Google Authenticator export (or another copy) somewhere safe.
+The first time, you choose a passphrase. It encrypts your secrets. **If you forget it, the secrets cannot be recovered**, so keep your Google Authenticator export (or another copy) somewhere safe.
+
+After the first unlock, otpcli saves the passphrase in your OS keychain and stops asking (see [Keychain](#-keychain)).
 
 ## ⬆️ Upgrading from the sudo version
 
@@ -91,6 +94,8 @@ otpcli edit [--backup] [--editor CMD]
                                   Edit the decrypted accounts in your editor
 otpcli import                     Import from a Google Authenticator export
 otpcli passwd                     Change the passphrase
+otpcli forget                     Remove the passphrase from the keychain and stop saving it
+otpcli remember                   Save it in the keychain again on the next unlock
 otpcli migrate [--yes]            Move secrets from the old sudo version
 
 otpcli backup                     Create a backup (same as: backup create)
@@ -116,7 +121,6 @@ The old flags (`--list`, `--stats`, `--edit`, `--backup`, `--restore`, `--initia
 
 ```
 $ otpcli github
-Passphrase:
 
 OTP code for GitHub (you@example.com): 123456
 Valid for another 17 seconds (copied to clipboard)
@@ -124,7 +128,6 @@ Valid for another 17 seconds (copied to clipboard)
 
 ```
 $ otpcli stats
-Passphrase:
 
 TOTP CLI - Account Stats
 
@@ -180,7 +183,19 @@ The preview runs as a separate process, so it can't ask for your passphrase. otp
 
 ### Scripting
 
-Set `TOTP_CLI_PASSPHRASE` to skip the prompt, e.g. in a script. Anything running as your user can read a process's environment, so only use it where that's acceptable.
+Set `TOTP_CLI_PASSPHRASE` to skip the prompt, e.g. in a script. Anything running as your user can read a process's environment, so only use it where that's acceptable. When it is set, otpcli doesn't read or write the keychain.
+
+## 🔑 Keychain
+
+The first time you unlock, otpcli saves the passphrase in your OS keychain (entry `totp-cli`) and doesn't ask again on that machine:
+
+- **macOS:** Keychain. macOS may ask once to allow Python access.
+- **Linux desktop:** GNOME Keyring / KWallet (Secret Service), normally unlocked when you log in.
+- **No keychain** (SSH sessions, headless servers, WSL, containers): otpcli asks for the passphrase each time, as before.
+
+otpcli never uses "keyrings" that store passwords in a plain file. If the saved passphrase stops working (e.g. after `otpcli passwd` elsewhere), otpcli asks again and updates it. `otpcli passwd` updates it too.
+
+Anyone using your unlocked session can get codes without the passphrase. To go back to typing it every time, run `otpcli forget`; `otpcli remember` turns it back on.
 
 ## 🧯 Backup and Restore
 
@@ -212,6 +227,7 @@ totp-cli/
 │       ├── cli.py               # Argument parsing, old-flag translation
 │       ├── commands.py          # Command handlers
 │       ├── vault.py             # Encrypted storage
+│       ├── keystore.py          # OS keychain for the passphrase
 │       ├── utils.py             # OTP generation, backups, helpers
 │       ├── preview.py           # Preview shown in fzf
 │       └── protobuf/            # Google Authenticator QR importer

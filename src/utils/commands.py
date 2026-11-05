@@ -22,6 +22,7 @@ from utils.utils import (
     scan_qr_image,
     validate_accounts,
 )
+from utils import keystore
 from utils.vault import Vault, VaultFormatError, WrongPassphrase
 
 PASSPHRASE_ENV = "TOTP_CLI_PASSPHRASE"
@@ -70,6 +71,25 @@ def ask_new_passphrase():
         return first
 
 
+def _keychain_enabled(ctx):
+    # TOTP_CLI_PASSPHRASE means a script or test: leave the keychain alone
+    return os.environ.get(PASSPHRASE_ENV) is None and not os.path.exists(_no_keychain_marker(ctx))
+
+
+def _no_keychain_marker(ctx):
+    return os.path.join(os.path.dirname(ctx.secrets_path), "no-keychain")
+
+
+def _remember(ctx, passphrase, announce=True):
+    if not _keychain_enabled(ctx):
+        return
+    if keystore.get(ctx.secrets_path) == passphrase:
+        return
+    if keystore.set(ctx.secrets_path, passphrase) and announce:
+        print("Passphrase saved in your keychain; otpcli won't ask again on this machine "
+              "('otpcli forget' to undo).")
+
+
 def open_vault(ctx):
     """Unlock the existing secrets file; returns (vault, accounts)."""
     if ctx._vault is not None:
@@ -79,6 +99,21 @@ def open_vault(ctx):
         if os.path.exists(ctx.legacy_json):
             msg += "\nOr move your secrets from the old sudo version with:  otpcli migrate"
         raise Abort(msg)
+
+    if _keychain_enabled(ctx):
+        saved = keystore.get(ctx.secrets_path)
+        if saved is not None:
+            vault = Vault(ctx.secrets_path, saved)
+            try:
+                accounts = vault.load()
+            except WrongPassphrase:
+                print("The passphrase saved in your keychain no longer works.")
+            except VaultFormatError as e:
+                raise Abort(f"{ctx.secrets_path}: {e}")
+            else:
+                ctx._vault = vault
+                return vault, accounts
+
     attempts = 1 if os.environ.get(PASSPHRASE_ENV) is not None else 3
     for attempt in range(attempts):
         vault = Vault(ctx.secrets_path, _ask("Passphrase: "))
@@ -92,6 +127,7 @@ def open_vault(ctx):
         except VaultFormatError as e:
             raise Abort(f"{ctx.secrets_path}: {e}")
         ctx._vault = vault
+        _remember(ctx, vault.passphrase)
         return vault, accounts
 
 
@@ -101,6 +137,12 @@ def open_or_create_vault(ctx):
     vault = Vault(ctx.secrets_path, ask_new_passphrase())
     ctx._vault = vault
     return vault, []
+
+
+def remember_new_store(ctx):
+    """Call after the first save of a new store, so the keychain entry matches a real file."""
+    if ctx._vault is not None:
+        _remember(ctx, ctx._vault.passphrase)
 
 
 def _rel(path):
@@ -387,7 +429,31 @@ def cmd_passwd(args, ctx):
     backup = save_with_backup(ctx, new_vault, accounts)
     ctx._vault = new_vault
     print("Passphrase changed.")
+    _remember(ctx, new_vault.passphrase, announce=False)
     print(f"Backups (including {_rel(backup)}) keep the passphrase they were made with.")
+    return 0
+
+
+# --- keychain ----------------------------------------------------------------------
+
+def cmd_forget(args, ctx):
+    removed = keystore.delete(ctx.secrets_path)
+    os.makedirs(os.path.dirname(ctx.secrets_path), mode=0o700, exist_ok=True)
+    with open(_no_keychain_marker(ctx), "w"):
+        pass
+    print("Passphrase removed from your keychain." if removed else "No passphrase was saved in your keychain.")
+    print("otpcli will ask for it every time. Use 'otpcli remember' to save it again.")
+    return 0
+
+
+def cmd_remember(args, ctx):
+    marker = _no_keychain_marker(ctx)
+    if os.path.exists(marker):
+        os.remove(marker)
+    if keystore._backend() is None:
+        print("No usable keychain on this machine, so otpcli will keep asking for the passphrase.")
+        return 1
+    print("otpcli will save your passphrase in the keychain the next time you unlock.")
     return 0
 
 
@@ -403,6 +469,7 @@ def import_into_vault(ctx, new_accounts):
     vault, existing = open_or_create_vault(ctx)
     merged, added = merge_accounts(existing, new_accounts)
     backup = save_with_backup(ctx, vault, merged)
+    remember_new_store(ctx)
     if backup:
         print(f"\nPrevious secrets backed up to: {_rel(backup)}")
     skipped = len(new_accounts) - added

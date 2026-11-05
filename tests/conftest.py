@@ -20,7 +20,10 @@ def cli(tmp_path, monkeypatch, capsys):
     from utils import cli as cli_module
     from utils import vault
 
+    from utils import keystore
+
     monkeypatch.setattr(vault, "SCRYPT_N", 2**10)  # fast tests
+    monkeypatch.setattr(keystore, "_backend", lambda: None)  # never touch the real keychain
     home = tmp_path / "config"
     monkeypatch.setenv("TOTP_CLI_HOME", str(home))
     monkeypatch.setenv("TOTP_CLI_PASSPHRASE", PASSPHRASE)

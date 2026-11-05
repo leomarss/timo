@@ -9,7 +9,8 @@ from utils.commands import Abort, Context
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_DIR = os.path.dirname(SRC_DIR)
 
-SUBCOMMANDS = {"get", "list", "stats", "watch", "edit", "backup", "import", "passwd", "migrate", "help"}
+SUBCOMMANDS = {"get", "list", "stats", "watch", "edit", "backup", "import", "passwd", "forget", "remember",
+               "migrate", "help"}
 
 DESCRIPTION = "TOTP CLI - Terminal One-Time Password"
 EPILOG = """\
@@ -78,6 +79,10 @@ def build_parser():
 
     sub.add_parser("import", help="import accounts from a Google Authenticator export").set_defaults(func=commands.cmd_import)
     sub.add_parser("passwd", help="change the passphrase").set_defaults(func=commands.cmd_passwd)
+    sub.add_parser("forget", help="remove the passphrase from your keychain and stop saving it").set_defaults(
+        func=commands.cmd_forget)
+    sub.add_parser("remember", help="save the passphrase in your keychain again").set_defaults(
+        func=commands.cmd_remember)
 
     p = sub.add_parser("migrate", help="move secrets from the old sudo version (json/secrets.json)")
     p.add_argument("--yes", action="store_true", help="delete the old plaintext files without asking")
