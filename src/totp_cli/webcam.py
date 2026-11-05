@@ -20,6 +20,7 @@ from totp_cli import messages as msg
 
 MAX_PREVIEW_WIDTH = 100  # cells, for half blocks; wider only costs redraw time, it doesn't help aiming
 MAX_IMAGE_WIDTH = 640  # pixels sent per frame with the kitty protocol; the terminal scales it up
+IMAGE_SHARE = 0.8  # of the terminal's width and height the image may take, so it isn't fullscreen
 STATUS_ROWS = 2  # the line above the preview and a blank one under it
 NO_FRAME_TIMEOUT = 5  # seconds without a frame before giving up on the camera
 QUERY_TIMEOUT = 0.5  # seconds to wait for the terminal to say which graphics it supports
@@ -349,7 +350,8 @@ class Preview:
 
     def _draw_image(self, frame, cols, rows, status):
         width, height, cells_wide, cells_high = image_layout(
-            cols, rows - STATUS_ROWS, *_cell_size(sys.stdout.fileno()), frame.width, frame.height)
+            max(1, int(cols * IMAGE_SHARE)), max(1, int((rows - STATUS_ROWS) * IMAGE_SHARE)),
+            *_cell_size(sys.stdout.fileno()), frame.width, frame.height)
         clear = ""
         if (cols, rows, cells_wide, cells_high) != self._layout:  # first frame, or the window was resized
             clear = "\x1b[2J" + "".join(kitty_hide(image_id) for image_id in IMAGE_IDS)
