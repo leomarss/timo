@@ -110,6 +110,8 @@ To search for a word that starts with "-": otpcli -- -word
 
 Every option starts with `-` or `--`, and plain words are always a search, so an account can be called "edit" or "list". Options must be spelled out in full, and only one action can be used at a time.
 
+Yes/no questions take a single key: `y` or `n`, Enter for the default (the capital letter in `[y/N]`), Esc for no. Other keys are ignored, and keys typed before a question appears don't answer it.
+
 ### Importing
 
 `otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.

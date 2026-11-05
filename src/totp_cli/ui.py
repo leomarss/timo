@@ -173,3 +173,88 @@ def note(message):
 def out(text=""):
     """A plain result line."""
     print(text, file=sys.stdout)
+
+
+# --- questions -----------------------------------------------------------------------
+
+YES_KEYS = (b"y", b"Y")
+NO_KEYS = (b"n", b"N", b"\x1b")  # Esc backs out
+ENTER_KEYS = (b"\r", b"\n")
+
+
+def confirm(question, default=False):
+    """Ask a yes/no question; returns True for yes.
+
+    On a terminal one key answers it: y or n, Enter for the default (the
+    capital letter in [y/N]), Esc for no. Other keys are ignored, with a hint
+    the first time. Keys typed before the question appeared are thrown away,
+    so they can't answer it by accident. Without a terminal (a pipe, a
+    script) a line is read instead: y/yes, n/no, or empty for the default.
+    """
+    prompt = f"{question} {paint('[Y/n]' if default else '[y/N]', DIM)} "
+    if not is_terminal(sys.stdin):
+        return _confirm_line(prompt, default)
+
+    import termios
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    new = termios.tcgetattr(fd)
+    new[3] &= ~(termios.ECHO | termios.ICANON)  # Ctrl-C still interrupts
+    new[6][termios.VMIN] = 1
+    new[6][termios.VTIME] = 0
+    sys.stdout.write(prompt)
+    sys.stdout.flush()
+    hinted = False
+    try:
+        termios.tcsetattr(fd, termios.TCSANOW, new)
+        termios.tcflush(fd, termios.TCIFLUSH)  # drop keys typed before the question
+        while True:
+            key = os.read(fd, 1)
+            if key in (b"", b"\x04"):
+                raise EOFError
+            if key == b"\x1b" and _drain_escape_sequence(fd):
+                key = None  # an arrow or function key, not Esc on its own
+            if key in YES_KEYS:
+                answer = True
+            elif key in NO_KEYS:
+                answer = False
+            elif key in ENTER_KEYS:
+                answer = default
+            else:
+                if not hinted:
+                    sys.stdout.write(paint(msg.PRESS_Y_OR_N, DIM) + " ")
+                    sys.stdout.flush()
+                    hinted = True
+                continue
+            break
+    finally:
+        # TCSANOW, not a DRAIN/FLUSH mode: those wait for pending output, which
+        # we never write to this fd, and would hang if nothing reads it
+        termios.tcsetattr(fd, termios.TCSANOW, old)
+    sys.stdout.write((msg.ANSWER_YES if answer else msg.ANSWER_NO) + "\n")
+    sys.stdout.flush()
+    return answer
+
+
+def _drain_escape_sequence(fd):
+    """After an Esc byte: read away the rest of a key sequence; True if there was one."""
+    import select
+
+    drained = False
+    while select.select([fd], [], [], 0.03)[0]:
+        os.read(fd, 16)
+        drained = True
+    return drained
+
+
+def _confirm_line(prompt, default):
+    while True:
+        answer = input(prompt).strip().lower()
+        if not answer:
+            return default
+        if answer in ("y", "yes"):
+            return True
+        if answer in ("n", "no"):
+            return False
+        note(msg.PRESS_Y_OR_N)

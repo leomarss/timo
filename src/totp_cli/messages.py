@@ -7,6 +7,11 @@ ui function that prints it, not here. Conventions:
 - {placeholders} are filled in with str.format()
 """
 
+# --- yes/no questions (ui.confirm adds [y/N] or [Y/n]) -----------------------------
+PRESS_Y_OR_N = "(press y or n)"
+ANSWER_YES = "yes"
+ANSWER_NO = "no"
+
 # --- general -----------------------------------------------------------------------
 ROOT = "otpcli doesn't run as root"
 ROOT_HINT = "Run it as your normal user, without sudo"
@@ -66,7 +71,7 @@ NO_EDITOR = "No suitable editor found"
 NO_EDITOR_HINT = "Set $EDITOR or use --editor=<command>"
 NO_CHANGES = "No changes"
 INVALID_EDIT = "Invalid accounts: {error}"
-PROMPT_EDIT_AGAIN = "Edit again? [Y/n] "
+PROMPT_EDIT_AGAIN = "Edit again?"
 CHANGES_DISCARDED = "Changes discarded"
 SAVED_ACCOUNTS = "Saved {accounts}"
 
@@ -80,7 +85,7 @@ AGE_JUST_NOW = "just now"
 AGE_UNITS = ((60, "minute"), (3600, "hour"), (86400, "day"), (7 * 86400, "week"),
              (30 * 86400, "month"), (365 * 86400, "year"))
 NO_BACKUPS_TO_REMOVE = "No backups to remove"
-PROMPT_REMOVE_ALL = "This will delete ALL backups. Are you sure? [y/N] "
+PROMPT_REMOVE_ALL = "This will delete ALL backups. Are you sure?"
 NOTHING_DELETED = "Nothing deleted"
 REMOVED_ALL = "Removed {backups}"
 REMOVED = "Removed"
@@ -91,10 +96,10 @@ RESTORED = "Restored"
 BACKUP_UNREADABLE = "{name}: {error}"
 
 # --- import ------------------------------------------------------------------------
-PROMPT_HAVE_URI = "Do you already have the OTP migration string? [y/N] "
+PROMPT_HAVE_URI = "Do you already have the OTP migration string?"
 PROMPT_PASTE_URI = "Paste otpauth-migration string (input hidden): "
 PROMPT_QR_PATH = "Path to QR code image (e.g. ~/Downloads/otp.png): "
-PROMPT_NEXT_QR = "The export has {total} QR codes. Import the next one? [Y/n] "
+PROMPT_NEXT_QR = "The export has {total} QR codes. Import the next one?"
 FOUND_IN_QR = "Found {accounts} in QR {index} of {total}:"
 QR_BOX_TITLE = "QR {index} of {total} · {accounts}"
 SKIPPED_HOTP = "Skipped {name}: counter-based (HOTP) accounts aren't supported"
@@ -110,11 +115,11 @@ SCANNING_QR = "Scanning QR code…"
 QR_UNREADABLE = "zbarimg couldn't read a QR code in {path}"
 
 # --- add ---------------------------------------------------------------------------
-PROMPT_HAVE_KEY = "Do you already have the otpauth:// link or the secret key? [y/N] "
+PROMPT_HAVE_KEY = "Do you already have the otpauth:// link or the secret key?"
 PROMPT_PASTE_KEY = "Paste the otpauth:// link or the secret key (input hidden): "
 PROMPT_ISSUER = "Issuer (e.g. GitHub): "
 PROMPT_ACCOUNT_NAME = "Account name (e.g. you@example.com): "
-PROMPT_REPLACE = "{name} already exists with a different secret key. Replace it? [y/N] "
+PROMPT_REPLACE = "{name} already exists with a different secret key. Replace it?"
 IS_MIGRATION = "That's a Google Authenticator export, not a single account"
 IS_MIGRATION_HINT = "Import it with: otpcli --initialize"
 ALREADY_PRESENT = "{name} is already present"
@@ -126,6 +131,6 @@ REPLACED = "Replaced {name}"
 FZF_REMOVE_PROMPT = "Remove account: "
 PROMPT_REMOVE_NUMBER = "Number of the account to remove (Enter to cancel): "
 BAD_NUMBER = "Type a number from 1 to {count}"
-PROMPT_REMOVE_ACCOUNT = "Remove {name}? [y/N] "
+PROMPT_REMOVE_ACCOUNT = "Remove {name}?"
 NOTHING_REMOVED = "Nothing removed"
 REMOVED_ACCOUNT = "Removed {name}"

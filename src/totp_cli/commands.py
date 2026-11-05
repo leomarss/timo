@@ -360,7 +360,7 @@ def cmd_edit(args, ctx):
                 break
             except ValueError as e:
                 ui.error(msg.INVALID_EDIT.format(error=e))
-                if input(msg.PROMPT_EDIT_AGAIN).strip().lower() == "n":
+                if not ui.confirm(msg.PROMPT_EDIT_AGAIN, default=True):
                     ui.warn(msg.CHANGES_DISCARDED)
                     return 1
     finally:
@@ -402,7 +402,7 @@ def cmd_backup_remove_all(args, ctx):
     if not files:
         ui.note(msg.NO_BACKUPS_TO_REMOVE)
         return 0
-    if input(msg.PROMPT_REMOVE_ALL).strip().lower() != "y":
+    if not ui.confirm(msg.PROMPT_REMOVE_ALL):
         ui.note(msg.NOTHING_DELETED)
         return 0
     for f in files:
@@ -539,8 +539,7 @@ def _show_qr_batch(accounts, skipped, batch_index, batch_size):
 def cmd_import(args, ctx):
     from totp_cli.protobuf.migration import parse_migration_uri
 
-    choice = input(msg.PROMPT_HAVE_URI).strip().lower()
-    use_qr = choice != "y"
+    use_qr = not ui.confirm(msg.PROMPT_HAVE_URI)
 
     collected = []
     while True:
@@ -558,8 +557,7 @@ def cmd_import(args, ctx):
 
         if batch_index + 1 >= batch_size:
             break
-        more = input(msg.PROMPT_NEXT_QR.format(total=batch_size)).strip().lower()
-        if more == "n":
+        if not ui.confirm(msg.PROMPT_NEXT_QR.format(total=batch_size), default=True):
             break
 
     if not collected:
@@ -574,7 +572,7 @@ def _read_single_account():
     """Ask for one account (pasted link or key, or a QR code); returns an account dict."""
     from totp_cli.otpauth import normalize_secret, parse_otpauth_uri
 
-    pasted = input(msg.PROMPT_HAVE_KEY).strip().lower() == "y"
+    pasted = ui.confirm(msg.PROMPT_HAVE_KEY)
     text = (read_hidden(msg.PROMPT_PASTE_KEY) if pasted else scan_qr_image() or "").strip()
     if not text:
         raise Abort(msg.NOTHING_ADDED)
@@ -614,7 +612,7 @@ def cmd_add(args, ctx):
         if old["secret"] == acc["secret"]:
             ui.warn(msg.ALREADY_PRESENT.format(name=label(old)))
             return 0
-        if input(msg.PROMPT_REPLACE.format(name=label(old))).strip().lower() != "y":
+        if not ui.confirm(msg.PROMPT_REPLACE.format(name=label(old))):
             raise Abort(msg.NOTHING_ADDED)
         # keep the label you had (maybe renamed with --edit), take the new key
         acc = {**acc, "issuer": old["issuer"], "name": old["name"]}
@@ -663,7 +661,7 @@ def cmd_remove(args, ctx):
         index = _pick_with_fzf(ctx, accounts, list(enumerate(accounts)), prompt=msg.FZF_REMOVE_PROMPT)
     else:
         index = _pick_by_number(accounts)
-    if index is None or input(msg.PROMPT_REMOVE_ACCOUNT.format(name=label(accounts[index]))).strip().lower() != "y":
+    if index is None or not ui.confirm(msg.PROMPT_REMOVE_ACCOUNT.format(name=label(accounts[index]))):
         ui.note(msg.NOTHING_REMOVED)
         return 0
 
