@@ -8,11 +8,12 @@ accounts; a wrong passphrase and a tampered file both fail authentication.
 import base64
 import json
 import os
-import tempfile
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+
+from utils import fileio
 
 FORMAT_VERSION = 1
 SCRYPT_N = 2**17  # about 0.2s per unlock on a modern laptop
@@ -77,22 +78,6 @@ def decrypt(blob, passphrase):
     return json.loads(plaintext)
 
 
-def write_private(path, data):
-    """Atomically write bytes to path, readable only by the current user."""
-    directory = os.path.dirname(os.path.abspath(path))
-    os.makedirs(directory, mode=0o700, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=directory, prefix=".tmp-")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        os.chmod(tmp_path, 0o600)
-        os.replace(tmp_path, path)
-    except BaseException:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-        raise
-
-
 class Vault:
     def __init__(self, path, passphrase):
         self.path = path
@@ -106,4 +91,4 @@ class Vault:
             return decrypt(f.read(), self.passphrase)
 
     def save(self, accounts):
-        write_private(self.path, encrypt(accounts, self.passphrase))
+        fileio.write_private(self.path, encrypt(accounts, self.passphrase))

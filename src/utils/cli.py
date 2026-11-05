@@ -43,6 +43,16 @@ def make_context():
     )
 
 
+def _seconds(value):
+    try:
+        seconds = int(value)
+    except ValueError:
+        seconds = -1
+    if seconds < 0:
+        raise argparse.ArgumentTypeError("must be a whole number of seconds (0 = never clear)")
+    return seconds
+
+
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="otpcli", description=DESCRIPTION, epilog=EPILOG,
@@ -53,6 +63,9 @@ def build_parser():
     p = sub.add_parser("get", help="copy a code (default when you just type search words)")
     p.add_argument("query", nargs="*", help="words that must all appear in issuer or account name")
     p.add_argument("--no-copy", action="store_true", help="print the code without copying it")
+    p.add_argument("--clear-after", type=_seconds, metavar="SECONDS",
+                   help="clear the clipboard after this many seconds, 0 = never "
+                        "(default: $TOTP_CLI_CLEAR_AFTER or 45)")
     p.set_defaults(func=commands.cmd_get)
 
     sub.add_parser("list", help="print all account labels").set_defaults(func=commands.cmd_list)

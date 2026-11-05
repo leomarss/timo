@@ -8,6 +8,8 @@ import sys
 from datetime import datetime
 from collections import Counter
 
+from utils import fileio
+
 
 DIGESTS = {
     "SHA1": hashlib.sha1,
@@ -106,15 +108,19 @@ def resolve_backup_path(backup_dir, backup_name):
 
 
 def create_backup(src_path, backup_dir):
-    os.makedirs(backup_dir, mode=0o700, exist_ok=True)
+    """Write a private copy of src_path into backup_dir; never overwrites a backup."""
+    with open(src_path, "rb") as f:
+        data = f.read()
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    backup_path = os.path.join(backup_dir, f"{BACKUP_PREFIX}{timestamp}")
-    n = 1
-    while os.path.exists(backup_path):  # never overwrite a backup made in the same second
-        backup_path = os.path.join(backup_dir, f"{BACKUP_PREFIX}{timestamp}_{n}")
-        n += 1
-    shutil.copy2(src_path, backup_path)
-    return backup_path
+    name = f"{BACKUP_PREFIX}{timestamp}"
+    n = 0
+    while True:
+        backup_path = os.path.join(backup_dir, name if n == 0 else f"{name}_{n}")
+        try:
+            fileio.write_new_private(backup_path, data)
+            return backup_path
+        except FileExistsError:  # a backup was made in the same second
+            n += 1
 
 
 def list_backups(backup_dir):

@@ -22,7 +22,7 @@ from utils.utils import (
     scan_qr_image,
     validate_accounts,
 )
-from utils import keystore
+from utils import clipboard, fileio, keystore
 from utils.vault import Vault, VaultFormatError, WrongPassphrase
 
 PASSPHRASE_ENV = "TOTP_CLI_PASSPHRASE"
@@ -163,17 +163,33 @@ def label(acc):
     return f"{acc['issuer']} ({acc['name']})"
 
 
+def _clear_after(args):
+    if args.clear_after is not None:
+        return args.clear_after
+    value = os.environ.get(clipboard.CLEAR_AFTER_ENV)
+    if value is None:
+        return clipboard.DEFAULT_CLEAR_AFTER
+    try:
+        seconds = int(value)
+        if seconds < 0:
+            raise ValueError
+    except ValueError:
+        raise Abort(f"{clipboard.CLEAR_AFTER_ENV} must be a whole number of seconds (0 = never clear).")
+    return seconds
+
+
 def _copy_and_print(acc, args):
     code, remaining = generate_otp(acc)
-    copied = False
-    if not args.no_copy:
-        try:
-            import pyperclip
-            pyperclip.copy(code)
-            copied = True
-        except Exception:
-            pass
-    note = "copied to clipboard" if copied else ("not copied" if args.no_copy else "clipboard unavailable")
+    if args.no_copy:
+        note = "not copied"
+    else:
+        clear_after = _clear_after(args)
+        if not clipboard.copy(code):
+            note = "clipboard unavailable"
+        elif clear_after and clipboard.schedule_clear(code, clear_after):
+            note = f"copied to clipboard, clears in {clear_after}s"
+        else:
+            note = "copied to clipboard"
     print(f"\nOTP code for {label(acc)}: {code}")
     print(f"Valid for another {remaining} seconds ({note})")
 
@@ -397,7 +413,8 @@ def cmd_backup_restore(args, ctx):
         return 1
 
     if not os.path.exists(ctx.secrets_path):
-        shutil.copy2(path, ctx.secrets_path)
+        with open(path, "rb") as f:
+            fileio.write_private(ctx.secrets_path, f.read())
         print(f"Backup restored from: {args.name}")
         return 0
 

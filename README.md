@@ -8,7 +8,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 
 - Interactive TOTP selector using `fzf`
 - Search by issuer or account name
-- Auto-copy OTP to clipboard
+- Auto-copy OTP to clipboard, cleared again after 45 seconds
 - Preview OTP with color-coded expiration
 - Secrets encrypted at rest with your passphrase (scrypt + AES-256-GCM)
 - Passphrase remembered in your OS keychain, so you type it once per machine
@@ -85,7 +85,9 @@ Earlier versions ran with `sudo` and kept unencrypted secrets in `json/secrets.j
 ```
 otpcli                            Pick an account with fzf and copy its code
 otpcli <words...>                 Copy the code if exactly one account matches all words
-otpcli get <words...> [--no-copy] Same, explicitly (use it for words like "list")
+otpcli get <words...>             Same, explicitly (use it for words like "list")
+    --no-copy                     Print the code without copying it
+    --clear-after SECONDS         Clear the clipboard after SECONDS (0 = never; default 45)
 
 otpcli list                       Print all account labels
 otpcli stats                      Show account counts per issuer
@@ -123,7 +125,7 @@ The old flags (`--list`, `--stats`, `--edit`, `--backup`, `--restore`, `--initia
 $ otpcli github
 
 OTP code for GitHub (you@example.com): 123456
-Valid for another 17 seconds (copied to clipboard)
+Valid for another 17 seconds (copied to clipboard, clears in 45s)
 ```
 
 ```
@@ -151,7 +153,7 @@ Everything lives in `~/.config/totp-cli/` (or `$XDG_CONFIG_HOME/totp-cli/`, or t
     └── secrets.enc.bak.YYYY-MM-DD_HH-MM-SS
 ```
 
-`secrets.enc` is encrypted with AES-256-GCM using a key derived from your passphrase with scrypt. The folder is readable only by you (`700`), the files too (`600`).
+`secrets.enc` is encrypted with AES-256-GCM using a key derived from your passphrase with scrypt. The folder is readable only by you (`700`), the files too (`600`). Every save and backup is written to a temporary file, flushed to disk, and only then renamed into place, so a crash or full disk never leaves a half-written file.
 
 Decrypted (as shown by `otpcli edit`), the accounts are a JSON list:
 
@@ -180,6 +182,10 @@ Codes refresh every 30 seconds.
 ### The fzf preview
 
 The preview runs as a separate process, so it can't ask for your passphrase. otpcli hands it only the upcoming codes (10 minutes' worth) through an environment variable, which only your user can read. It never gets your secrets or passphrase. If the picker stays open longer, the preview asks you to reopen otpcli.
+
+### Clipboard
+
+After copying a code, otpcli clears the clipboard 45 seconds later, but only if it still holds that code, so anything you copied since is left alone. otpcli doesn't wait for this: a small background process does it. Change the delay with `--clear-after SECONDS` or `export TOTP_CLI_CLEAR_AFTER=SECONDS`; `0` turns clearing off.
 
 ### Scripting
 
@@ -228,6 +234,8 @@ totp-cli/
 │       ├── commands.py          # Command handlers
 │       ├── vault.py             # Encrypted storage
 │       ├── keystore.py          # OS keychain for the passphrase
+│       ├── fileio.py            # Crash-safe private file writes
+│       ├── clipboard.py         # Copy and delayed clear
 │       ├── utils.py             # OTP generation, backups, helpers
 │       ├── preview.py           # Preview shown in fzf
 │       └── protobuf/            # Google Authenticator QR importer
