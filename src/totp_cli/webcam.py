@@ -359,10 +359,11 @@ class Preview:
         small = frame.reformat(width=width, height=height, format="bgr24")
         rgb = mirror_bgr(plane_bytes(small, 3), width, height)  # mirrored like a mirror
         column = (cols - cells_wide) // 2 + 1
+        row = STATUS_ROWS + (rows - STATUS_ROWS - cells_high) // 2 + 1  # centred in the space under the status
         image_id = IMAGE_IDS[self._frames_shown % 2]
         previous_id = IMAGE_IDS[(self._frames_shown + 1) % 2]
         self._frames_shown += 1
-        self._write(f"{SYNC_START}{clear}\x1b[H{status}\x1b[K\x1b[{STATUS_ROWS + 1};{column}H"
+        self._write(f"{SYNC_START}{clear}\x1b[H{status}\x1b[K\x1b[{row};{column}H"
                     + kitty_image(rgb, width, height, cells_wide, cells_high, image_id, previous_id)
                     + SYNC_END)
 
