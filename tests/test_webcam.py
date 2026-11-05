@@ -29,52 +29,90 @@ def test_first_match_is_none_when_cancelled():
     assert webcam.first_match(iter(["", ""]), decode_as_is, lambda t: True) is None
 
 
-def qr_frame(cv2, text, mirrored):
-    img = cv2.QRCodeEncoder.create().encode(text)
-    img = cv2.resize(img, None, fx=6, fy=6, interpolation=cv2.INTER_NEAREST)
-    img = cv2.copyMakeBorder(img, 40, 40, 40, 40, cv2.BORDER_CONSTANT, value=255)
-    frame = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    return cv2.flip(frame, 1) if mirrored else frame
+def qr_frame(av, zxingcpp, text, mirrored):
+    """A grey camera frame of a QR code, padded the way FFmpeg pads rows."""
+    code = memoryview(zxingcpp.write_barcode(zxingcpp.BarcodeFormat.QRCode, text, width=300, height=300))
+    height, width = code.shape
+    pixels = code.tobytes()
+    rows = [pixels[y * width:(y + 1) * width] for y in range(height)]
+    if mirrored:
+        rows = [row[::-1] for row in rows]
+    frame = av.VideoFrame(width, height, "gray")
+    padding = b"\0" * (frame.planes[0].line_size - width)
+    frame.planes[0].update(b"".join(row + padding for row in rows))
+    return frame
 
 
 @pytest.mark.parametrize("mirrored", [False, True])
 def test_decode_reads_a_qr_code_either_way_round(mirrored):
-    cv2 = pytest.importorskip("cv2")
-    frame = qr_frame(cv2, LINK, mirrored)
-    assert webcam.decode(cv2, cv2.QRCodeDetector(), frame) == LINK
+    av = pytest.importorskip("av")
+    zxingcpp = pytest.importorskip("zxingcpp")
+    assert webcam.decode(zxingcpp, qr_frame(av, zxingcpp, LINK, mirrored)) == LINK
 
 
-def test_decode_tries_the_mirrored_frame_when_the_code_cant_be_read():
-    class Detector:  # finds a code, but only reads it mirrored
-        def detectAndDecode(self, frame):
-            return (LINK if frame[0][0] == "mirrored" else ""), "corners", None
-
-    class Cv2:
-        @staticmethod
-        def flip(frame, axis):
-            return [["mirrored"]]
-
-    assert webcam.decode(Cv2, Detector(), [["raw"]]) == LINK
+def test_decode_is_empty_without_a_qr_code():
+    av = pytest.importorskip("av")
+    zxingcpp = pytest.importorskip("zxingcpp")
+    frame = av.VideoFrame(64, 64, "gray")
+    frame.planes[0].update(b"\x80" * (frame.planes[0].line_size * 64))
+    assert webcam.decode(zxingcpp, frame) == ""
 
 
-def test_decode_skips_the_second_try_when_there_is_no_code():
-    tries = []
-
-    class Detector:
-        def detectAndDecode(self, frame):
-            tries.append(frame)
-            return "", None, None
-
-    assert webcam.decode(None, Detector(), "frame") == ""
-    assert tries == ["frame"]
-
-
-def test_scan_without_opencv_says_how_to_install_it(monkeypatch):
-    monkeypatch.setitem(sys.modules, "cv2", None)  # import cv2 fails
+def test_scan_without_the_extra_says_how_to_install_it(monkeypatch):
+    monkeypatch.setitem(sys.modules, "av", None)  # import av fails
     with pytest.raises(webcam.Unavailable) as e:
         webcam.scan(lambda t: True)
-    assert "OpenCV" in e.value.message
-    assert any("pipx inject totp-cli opencv-python" in hint for hint in e.value.hints)
+    assert "PyAV" in e.value.message
+    assert any("pipx inject totp-cli av zxing-cpp" in hint for hint in e.value.hints)
+
+
+# --- the terminal preview ------------------------------------------------------------
+
+def test_preview_size_fits_the_height_and_keeps_square_pixels():
+    # 16:9 camera in a 200 x 20 area: 40 pixel rows allow 71 pixels wide (40 * 16 / 9),
+    # which is 39 rows tall, rounded down to whole cells
+    assert webcam.preview_size(200, 20, 1280, 720) == (71, 38)
+
+
+def test_preview_size_fits_the_width():
+    # 60 cells wide leaves 60 x 33 pixels, rounded down to whole cells
+    assert webcam.preview_size(60, 50, 1280, 720) == (60, 32)
+
+
+def test_preview_size_is_capped_so_redraws_stay_fast():
+    width, _ = webcam.preview_size(500, 200, 1280, 720)
+    assert width == webcam.MAX_PREVIEW_WIDTH
+
+
+def test_preview_size_survives_a_tiny_terminal():
+    width, height = webcam.preview_size(0, 0, 1280, 720)
+    assert width >= 1 and height >= 2 and height % 2 == 0
+
+
+RED, GREEN, BLUE, WHITE = (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 255)
+
+
+def picture(*rows):
+    return bytes(channel for row in rows for pixel in row for channel in pixel)
+
+
+def test_render_puts_two_pixels_in_each_cell_mirrored():
+    # 2 x 2 pixels: one line of two cells, the right-hand column drawn first
+    lines = webcam.render(picture([RED, GREEN], [BLUE, WHITE]), 2, 2)
+    assert lines == [
+        "\x1b[38;2;0;255;0;48;2;255;255;255m▀"  # top GREEN, bottom WHITE
+        "\x1b[38;2;255;0;0;48;2;0;0;255m▀"  # top RED, bottom BLUE
+        + webcam.RESET
+    ]
+
+
+def test_render_in_grey_without_24_bit_colour():
+    lines = webcam.render(picture([WHITE], [(0, 0, 0)]), 1, 2, truecolor=False)
+    assert lines == ["\x1b[38;5;255;48;5;232m▀" + webcam.RESET]  # white over black
+
+
+def test_render_has_a_line_for_each_pair_of_pixel_rows():
+    assert len(webcam.render(picture(*[[RED] * 3] * 6), 3, 6)) == 3
 
 
 # --- the commands --------------------------------------------------------------------

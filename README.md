@@ -23,7 +23,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 - [`pipx`](https://pipx.pypa.io/) (`brew install pipx` or `sudo apt install pipx`)
 - `fzf` installed and available in `$PATH`
 - `zbarimg` to import from QR code images (optional)
-- OpenCV to scan QR codes with the webcam (optional, the `webcam` extra)
+- PyAV and zxing-cpp to scan QR codes with the webcam (optional, the `webcam` extra)
 
 ## 🔧 Setup
 
@@ -55,9 +55,9 @@ If `fzf` is installed but not found by the script, you can set its path manually
 export FZF_PATH=$(dirname $(which fzf))
 ```
 
-To scan QR codes with the webcam, add OpenCV to otpcli's environment:
+To scan QR codes with the webcam, add PyAV and zxing-cpp to otpcli's environment:
 ```bash
-pipx inject totp-cli opencv-python
+pipx inject totp-cli av zxing-cpp
 # or install with the extra from the start:
 pipx install 'totp-cli[webcam] @ git+https://github.com/leomarss/totp-cli.git'
 ```
@@ -293,7 +293,7 @@ totp-cli/
 
 This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
 Make sure it is installed to use `otpcli --initialize` or `otpcli --add` with QR images.  
-Webcam scanning uses [OpenCV](https://opencv.org/) (`opencv-python`). The camera window shows a mirrored preview; frames stay in memory and are never saved. On macOS, the first scan asks you to allow your terminal app to use the camera. Press Esc in the window to cancel.
+Webcam scanning uses [PyAV](https://github.com/PyAV-Org/PyAV) to read the camera and [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp) to decode the QR code, on macOS and Linux. A mirrored preview of the camera is drawn in the terminal itself (in colour where the terminal supports 24-bit colour, in grey otherwise); frames stay in memory and are never saved. On macOS, the first scan asks you to allow your terminal app to use the camera. Press Esc or q to cancel.
 
 
 ## 💙 License

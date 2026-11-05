@@ -20,7 +20,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-webcam = ["opencv-python>=4.8"]
+webcam = ["av>=14", "zxing-cpp>=2.3"]
 
 [project.scripts]
 otpcli = "totp_cli.cli:main"

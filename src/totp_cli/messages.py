@@ -114,13 +114,16 @@ NO_ZBARIMG = "zbarimg isn't installed"
 NO_ZBARIMG_HINT = "Install it with: brew install zbar / sudo apt install zbar-tools"
 SCANNING_QR = "Scanning QR code…"
 QR_UNREADABLE = "zbarimg couldn't read a QR code in {path}"
-SCANNING_WEBCAM = "Show the QR code to the camera (Esc in the camera window to cancel)…"
-NO_WEBCAM_EXTRA = "Scanning with the webcam needs OpenCV"
-NO_WEBCAM_EXTRA_HINT = "Install it with: pipx inject totp-cli opencv-python"
+SCANNING_WEBCAM = "Opening the webcam…"
+WEBCAM_PREVIEW_STATUS = "Show the QR code to the camera · Esc or q to cancel"
+NO_WEBCAM_EXTRA = "Scanning with the webcam needs PyAV and zxing-cpp"
+NO_WEBCAM_EXTRA_HINT = "Install them with: pipx inject totp-cli av zxing-cpp"
+WEBCAM_UNSUPPORTED = "Scanning with the webcam works on macOS and Linux only"
+WEBCAM_NO_TERMINAL = "Scanning with the webcam needs a terminal to show the camera in"
 WEBCAM_UNAVAILABLE = "Can't use the webcam"
-WEBCAM_UNAVAILABLE_HINT = ("On macOS, allow your terminal app in System Settings › Privacy & Security › Camera, "
-                           "then try again")
-WEBCAM_FAILED = "The webcam window failed: {error}"
+WEBCAM_UNAVAILABLE_HINT_MACOS = ("Allow your terminal app in System Settings › Privacy & Security › Camera, "
+                                 "then try again")
+WEBCAM_UNAVAILABLE_HINT_LINUX = "Check that a camera is connected at /dev/video0 and that you can read it (the video group)"
 
 # --- add ---------------------------------------------------------------------------
 PROMPT_HAVE_KEY = "Do you already have the otpauth:// link or the secret key?"
