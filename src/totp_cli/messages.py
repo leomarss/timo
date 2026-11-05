@@ -57,7 +57,8 @@ COPIED_CLEARS = "copied, clears in {seconds}s"
 BAD_CLEAR_AFTER_ENV = "{env} must be a whole number of seconds (0 = never clear)"
 
 # --- list / stats / watch ----------------------------------------------------------
-LIST_HEADERS = ("#", "Issuer", "Account")
+LIST_HEADERS = ("#", "Issuer", "Account", "Added")
+NO_DATE = "-"
 STATS_HEADERS = ("Issuer", "Accounts")
 STATS_TOTAL = "Total"
 STATS_ISSUERS = "({issuers})"

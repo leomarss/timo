@@ -140,7 +140,7 @@ def build_parser():
            help="clear the clipboard after SECONDS, 0 = never (default 45)")
 
     parser.section("See your accounts")
-    option("--list", action="store_true", help="print all account labels")
+    option("--list", action="store_true", help="list all accounts and the day each was added")
     option("--stats", action="store_true", help="show account counts per issuer")
     option("--watch", action="store_true", help="show all codes, refreshing every second")
 

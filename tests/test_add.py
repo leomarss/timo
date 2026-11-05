@@ -7,6 +7,8 @@ from totp_cli import clipboard, commands
 from totp_cli.otpauth import normalize_secret, parse_otpauth_uri
 from totp_cli.utils import list_backups
 
+from test_import import undated
+
 SECRET = "JBSWY3DPEHPK3PXP"
 OTHER = "GEZDGNBVGY3TQOJQ"
 
@@ -77,8 +79,8 @@ def test_add_otpauth_link_creates_store(cli, monkeypatch):
     code, out, err = run_add(cli, monkeypatch, f"otpauth://totp/GitHub:me?secret={SECRET}&issuer=GitHub")
     assert code == 0, err
     assert "✓ Added GitHub (me)" in out
-    assert cli.load() == [{"issuer": "GitHub", "name": "me", "secret": SECRET,
-                           "algorithm": "SHA1", "digits": 6}]
+    assert undated(cli.load()) == [{"issuer": "GitHub", "name": "me", "secret": SECRET,
+                                    "algorithm": "SHA1", "digits": 6}]
 
 
 def test_add_shows_the_current_code(cli, monkeypatch):
@@ -91,8 +93,8 @@ def test_add_shows_the_current_code(cli, monkeypatch):
 def test_add_secret_key_asks_for_issuer_and_name(cli, monkeypatch):
     code, out, err = run_add(cli, monkeypatch, "jbsw y3dp ehpk 3pxp", answers=("y", "GitHub", "me"))
     assert code == 0, err
-    assert cli.load() == [{"issuer": "GitHub", "name": "me", "secret": SECRET,
-                           "algorithm": "SHA1", "digits": 6}]
+    assert undated(cli.load()) == [{"issuer": "GitHub", "name": "me", "secret": SECRET,
+                                    "algorithm": "SHA1", "digits": 6}]
 
 
 def test_add_asks_again_for_empty_issuer(cli, monkeypatch):
@@ -183,3 +185,22 @@ def test_add_new_key_for_existing_account_can_be_declined(cli, monkeypatch):
 def test_add_never_prints_secrets(cli, monkeypatch):
     _, out, err = run_add(cli, monkeypatch, f"otpauth://totp/GitHub:me?secret={SECRET}")
     assert SECRET not in out + err
+
+
+def test_add_same_key_under_another_label_changes_nothing(cli, monkeypatch):
+    cli.store([{"issuer": "GitHub personal", "name": "me", "secret": SECRET}])
+    code, _, err = run_add(cli, monkeypatch, f"otpauth://totp/GitHub:someone?secret={SECRET.lower()}")
+    assert code == 0
+    assert "GitHub personal (me) is already present" in err
+    assert len(cli.load()) == 1
+
+
+def test_add_stamps_date_added(cli, monkeypatch):
+    run_add(cli, monkeypatch, f"otpauth://totp/GitHub:me?secret={SECRET}")
+    undated(cli.load())  # checks the timestamp
+
+
+def test_replacing_a_key_updates_date_added(cli, monkeypatch):
+    cli.store([{"issuer": "GitHub", "name": "me", "secret": OTHER, "date_added": "2020-01-01T00:00:00+00:00"}])
+    run_add(cli, monkeypatch, f"otpauth://totp/GitHub:me?secret={SECRET}", answers=("y", "y"))
+    assert cli.load()[0]["date_added"] > "2020-01-01T00:00:00+00:00"

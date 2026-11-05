@@ -2,13 +2,21 @@ import base64
 import io
 import os
 import sys
+from datetime import datetime
 from urllib.parse import quote
 
 import pytest
 
 from totp_cli.protobuf import migration_pb2
 from totp_cli.protobuf.migration import parse_migration_uri
-from totp_cli.utils import list_backups
+from totp_cli.utils import list_backups, merge_accounts
+
+
+def undated(accounts):
+    """The accounts without date_added, after checking it's a valid timestamp."""
+    for acc in accounts:
+        datetime.fromisoformat(acc["date_added"])
+    return [{k: v for k, v in acc.items() if k != "date_added"} for acc in accounts]
 
 
 def make_uri(params, batch_index=0, batch_size=1):
@@ -62,8 +70,8 @@ def test_import_creates_encrypted_store(cli, monkeypatch):
     code, out, _ = run_import(cli, monkeypatch, make_uri([A]))
     assert code == 0
     assert "✓ Imported 1 new account\n" in out
-    assert cli.load() == [{"issuer": "GitHub", "name": "me", "secret": b32(A[2]),
-                           "algorithm": "SHA1", "digits": 6}]
+    assert undated(cli.load()) == [{"issuer": "GitHub", "name": "me", "secret": b32(A[2]),
+                                    "algorithm": "SHA1", "digits": 6}]
     assert b"GitHub" not in cli.secrets.read_bytes()
     assert os.stat(cli.secrets).st_mode & 0o777 == 0o600
 
@@ -135,3 +143,48 @@ def test_parse_skips_hotp_accounts():
     accounts, skipped, _, _ = parse_migration_uri(uri)
     assert accounts == []
     assert skipped == ["X (x)"]
+
+
+# --- duplicates and date_added ---------------------------------------------------------
+
+def test_merge_matches_on_the_secret_whatever_the_label():
+    existing = [{"issuer": "GitHub (renamed)", "name": "work", "secret": "JBSWY3DPEHPK3PXP"}]
+    new = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"},
+           {"issuer": "AWS", "name": "me", "secret": "GEZDGNBVGY3TQOJQ"}]
+    merged, added = merge_accounts(existing, new)
+    assert added == 1
+    assert [a["issuer"] for a in merged] == ["GitHub (renamed)", "AWS"]
+
+
+def test_merge_ignores_case_spaces_and_padding_in_secrets():
+    existing = [{"issuer": "GitHub", "name": "me", "secret": "jbsw y3dp ehpk 3pxp"}]
+    merged, added = merge_accounts(existing, [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP===="}])
+    assert added == 0 and merged == existing
+
+
+def test_merge_skips_duplicates_within_one_import():
+    twice = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"},
+             {"issuer": "unknown", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
+    merged, added = merge_accounts([], twice)
+    assert added == 1 and merged == twice[:1]
+
+
+def test_reimport_after_renaming_adds_no_duplicates(cli, monkeypatch):
+    run_import(cli, monkeypatch, make_uri([A, B]))
+    renamed = cli.load()
+    renamed[0]["issuer"] = "GitHub personal"
+    cli.store(renamed)
+    code, out, _ = run_import(cli, monkeypatch, make_uri([A, B]))
+    assert code == 0
+    assert "✓ Imported 0 new accounts, skipped 2 already present" in out
+    assert [a["issuer"] for a in cli.load()] == ["GitHub personal", "AWS"]
+
+
+def test_import_stamps_only_new_accounts(cli, monkeypatch):
+    cli.store([{"issuer": "GitHub", "name": "me", "secret": b32(A[2])}])
+    run_import(cli, monkeypatch, make_uri([A, B]))
+    old, new = cli.load()
+    assert "date_added" not in old  # added before otpcli kept dates: left alone
+    added = datetime.fromisoformat(new["date_added"])
+    assert added.tzinfo is not None
+    assert abs((datetime.now(added.tzinfo) - added).total_seconds()) < 60

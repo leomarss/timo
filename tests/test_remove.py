@@ -19,7 +19,7 @@ def no_fzf(monkeypatch):
 
 @pytest.fixture
 def fzf(monkeypatch):
-    """Fake fzf: picks the line whose label is in `fzf.pick` (None = Esc)."""
+    """Fake fzf: picks the line whose shown text starts with `fzf.pick` (None = Esc)."""
     class Fake:
         pick = None
         lines = None
@@ -27,7 +27,7 @@ def fzf(monkeypatch):
     def run(cmd, input, **kwargs):
         Fake.lines = input.splitlines()
         Fake.cmd = cmd
-        chosen = [line for line in Fake.lines if Fake.pick and line.endswith("\t" + Fake.pick)]
+        chosen = [line for line in Fake.lines if Fake.pick and line.split("\t")[1].startswith(Fake.pick + " ")]
         if not chosen:
             raise subprocess.CalledProcessError(130, cmd)
         return subprocess.CompletedProcess(cmd, 0, stdout=chosen[0] + "\n")
@@ -102,7 +102,14 @@ def test_fzf_removes_the_picked_account_after_confirming(cli, fzf):
 def test_fzf_offers_every_account(cli, fzf):
     cli.store(THREE)
     cli.run("--remove")
-    assert [line.split("\t")[1] for line in fzf.lines] == ["GitHub (me)", "AWS (ops)", "GitHub (work)"]
+    assert [line.split("\t")[1].split("  ")[0] for line in fzf.lines] == ["GitHub (me)", "AWS (ops)", "GitHub (work)"]
+
+
+def test_fzf_shows_when_each_account_was_added(cli, fzf):
+    accounts = [dict(THREE[0], date_added="2026-11-05T16:02:11+01:00"), THREE[1]]
+    cli.store(accounts)
+    cli.run("--remove")
+    assert [line.split("\t")[1] for line in fzf.lines] == ["GitHub (me)   2026-11-05", "AWS (ops)     -"]
 
 
 def test_fzf_confirmation_can_be_declined(cli, fzf):

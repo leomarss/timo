@@ -75,7 +75,7 @@ Copy a code
       --clear-after SECONDS   clear the clipboard after SECONDS, 0 = never (default 45)
 
 See your accounts
-  --list                      print all account labels
+  --list                      list all accounts and the day each was added
   --stats                     show account counts per issuer
   --watch                     show all codes, refreshing every second
 
@@ -114,13 +114,13 @@ Yes/no questions take a single key: `y` or `n`, Enter for the default (the capit
 
 ### Importing
 
-`otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.
+`otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have: an account counts as the same when its secret key matches, whatever its label (so renaming one with `--edit` doesn't make it come back). Counter-based (HOTP) accounts are not supported and are skipped with a warning.
 
 ### Adding an account
 
 `otpcli --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, otpcli asks for the issuer and account name.
 
-The current code is shown and copied right away, since most sites ask for one to finish the setup. If the account already exists with a different key (you reset 2FA on that site), otpcli asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
+The current code is shown and copied right away, since most sites ask for one to finish the setup. If the key is already there under any label, nothing changes. If the account already exists with a different key (you reset 2FA on that site), otpcli asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
 
 ### Removing an account
 
@@ -189,7 +189,8 @@ Decrypted (as shown by `otpcli --edit`), the accounts are a JSON list:
     "name": "you@example.com",
     "secret": "JBSWY3DPEHPK3PXP",
     "algorithm": "SHA1",
-    "digits": 6
+    "digits": 6,
+    "date_added": "2026-11-05T16:02:11+01:00"
   }
 ]
 ```
@@ -201,6 +202,7 @@ Decrypted (as shown by `otpcli --edit`), the accounts are a JSON list:
 | `secret` | yes | base32 secret | |
 | `algorithm` | no | `SHA1`, `SHA256`, `SHA512`, `MD5` | `SHA1` |
 | `digits` | no | `6`, `8` | `6` |
+| `date_added` | no | when `--initialize` or `--add` saved it (ISO 8601, local time) | |
 
 Codes refresh every 30 seconds.
 

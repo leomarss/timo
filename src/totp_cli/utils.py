@@ -1,4 +1,5 @@
 import hashlib
+import re
 import subprocess
 import pyotp
 import time
@@ -54,22 +55,36 @@ def validate_accounts(accounts):
         for field in ("issuer", "name", "secret"):
             if not isinstance(acc.get(field), str):
                 raise ValueError(f"Account #{i} needs a text \"{field}\"")
+        if not isinstance(acc.get("date_added", ""), str):
+            raise ValueError(f"Account #{i}: \"date_added\" must be text")
         try:
             make_totp(acc).now()
         except Exception as e:
             raise ValueError(f"Account #{i} ({acc['issuer']}): {e}") from None
 
 
-def merge_accounts(existing, new_accounts):
-    """Append new accounts, skipping ones already present (same issuer, name and secret).
+def secret_key(secret):
+    """A secret in one canonical form, so "jbsw y3dp" and "JBSWY3DP==" compare equal."""
+    return re.sub(r"[\s=-]", "", str(secret)).upper()
 
+
+def now_stamp():
+    """The current local time for "date_added", e.g. "2026-11-05T16:02:11+01:00"."""
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def merge_accounts(existing, new_accounts):
+    """Append new accounts, skipping any whose secret is already present.
+
+    Only the secret counts: the same key under another label (renamed with
+    --edit, or exported differently) is the same account.
     Returns (merged, added_count).
     """
-    seen = {(a.get("issuer"), a.get("name"), a.get("secret")) for a in existing}
+    seen = {secret_key(a.get("secret", "")) for a in existing}
     merged = list(existing)
     added = 0
     for acc in new_accounts:
-        key = (acc["issuer"], acc["name"], acc["secret"])
+        key = secret_key(acc["secret"])
         if key in seen:
             continue
         seen.add(key)

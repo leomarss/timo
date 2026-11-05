@@ -158,3 +158,21 @@ def test_list_backups_shows_ages(cli, terminal):
     header, rule, row = out.splitlines()
     assert header.split() == ["Backup", "Age"]
     assert row.split()[0].startswith("secrets.enc.bak.") and row.split()[1] == "just"
+
+
+def test_list_shows_when_accounts_were_added(cli, terminal):
+    cli.store([
+        {"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP", "date_added": "2026-11-05T16:02:11+01:00"},
+        {"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"},  # from before date_added
+    ])
+    out, _ = terminal("--list")
+    header, rule, first, second = out.splitlines()
+    assert header.split() == ["#", "Issuer", "Account", "Added"]
+    assert first.split() == ["1", "GitHub", "me", "2026-11-05"]
+    assert second.split() == ["2", "AWS", "ops", "-"]
+
+
+def test_list_piped_stays_one_label_per_line(cli):
+    cli.store([{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP", "date_added": "2026-11-05T16:02:11+01:00"}])
+    _, out, _ = cli.run("--list")
+    assert out == "GitHub (me)\n"

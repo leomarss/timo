@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import datetime
 from dataclasses import dataclass, field
 
 from totp_cli.utils import (
@@ -18,10 +19,12 @@ from totp_cli.utils import (
     list_backups,
     make_totp,
     merge_accounts,
+    now_stamp,
     preview_codes,
     read_hidden,
     resolve_backup_path,
     scan_qr_image,
+    secret_key,
     validate_accounts,
 )
 from totp_cli import clipboard, fileio, keystore, ui
@@ -240,9 +243,10 @@ def cmd_get(args, ctx):
     return 0
 
 
-def _pick_with_fzf(ctx, accounts, matches, prompt="Select OTP: "):
+def _pick_with_fzf(ctx, accounts, matches, prompt="Select OTP: ", show_date=False):
     """Let the user pick one of matches [(index, account)] with fzf.
 
+    show_date adds the day each account was added after its label, lined up.
     Returns the picked account's index in accounts, or None if they pressed Esc.
     """
     if sys.stdout.isatty():
@@ -253,7 +257,11 @@ def _pick_with_fzf(ctx, accounts, matches, prompt="Select OTP: "):
     env = dict(os.environ)
     env[PREVIEW_ENV] = json.dumps(preview_codes(matches, time.time()))
     env.pop(PASSPHRASE_ENV, None)
-    lines = "\n".join(f"{i}\t{label(acc)}" for i, acc in matches)
+    shown = [label(acc) for _, acc in matches]
+    if show_date:
+        width = max(map(len, shown))
+        shown = [f"{text.ljust(width)}   {_date_added(acc)}" for text, (_, acc) in zip(shown, matches)]
+    lines = "\n".join(f"{i}\t{text}" for (i, _), text in zip(matches, shown))
     try:
         result = subprocess.run(
             fzf_args(ctx.python_path, ctx.preview_script, prompt),
@@ -279,9 +287,25 @@ def cmd_list(args, ctx):
         for acc in accounts:
             ui.out(label(acc))
         return 0
-    ui.table(msg.LIST_HEADERS,
-             [(i, acc["issuer"], acc["name"]) for i, acc in enumerate(accounts, 1)], right={0})
+    _account_table(accounts)
     return 0
+
+
+def _account_table(accounts):
+    ui.table(msg.LIST_HEADERS,
+             [(i, acc["issuer"], acc["name"], _date_added(acc)) for i, acc in enumerate(accounts, 1)],
+             right={0})
+
+
+def _date_added(acc):
+    """The day an account was added ("2026-11-05"), or "-" for accounts from before date_added."""
+    value = acc.get("date_added")
+    if not value:
+        return msg.NO_DATE
+    try:
+        return datetime.fromisoformat(value).strftime("%Y-%m-%d")
+    except ValueError:
+        return value  # edited by hand: show it as it is
 
 
 def cmd_stats(args, ctx):
@@ -505,7 +529,8 @@ def _read_migration_uri(use_qr):
 
 def import_into_vault(ctx, new_accounts):
     vault, existing = open_or_create_vault(ctx)
-    merged, added = merge_accounts(existing, new_accounts)
+    stamp = now_stamp()
+    merged, added = merge_accounts(existing, [{**acc, "date_added": stamp} for acc in new_accounts])
     backup = save_with_backup(ctx, vault, merged)
     remember_new_store(ctx)
     if backup:
@@ -602,6 +627,12 @@ def _same_account(a, b):
 def cmd_add(args, ctx):
     acc = _read_single_account()
     vault, accounts = open_or_create_vault(ctx)
+    acc["date_added"] = now_stamp()
+
+    same_key = next((old for old in accounts if secret_key(old["secret"]) == secret_key(acc["secret"])), None)
+    if same_key is not None:  # whatever its label
+        ui.warn(msg.ALREADY_PRESENT.format(name=label(same_key)))
+        return 0
 
     match = next((i for i, old in enumerate(accounts) if _same_account(old, acc)), None)
     if match is None:
@@ -609,9 +640,6 @@ def cmd_add(args, ctx):
         done = msg.ADDED.format(name=label(acc))
     else:
         old = accounts[match]
-        if old["secret"] == acc["secret"]:
-            ui.warn(msg.ALREADY_PRESENT.format(name=label(old)))
-            return 0
         if not ui.confirm(msg.PROMPT_REPLACE.format(name=label(old))):
             raise Abort(msg.NOTHING_ADDED)
         # keep the label you had (maybe renamed with --edit), take the new key
@@ -637,8 +665,7 @@ def cmd_add(args, ctx):
 def _pick_by_number(accounts):
     """Show a numbered list and ask for a number; returns an index or None (Enter)."""
     if ui.is_terminal():
-        ui.table(msg.LIST_HEADERS,
-                 [(i, acc["issuer"], acc["name"]) for i, acc in enumerate(accounts, 1)], right={0})
+        _account_table(accounts)
     else:
         width = len(str(len(accounts)))
         for i, acc in enumerate(accounts, 1):
@@ -658,7 +685,8 @@ def cmd_remove(args, ctx):
         raise Abort(msg.NO_ACCOUNTS, msg.NO_SECRETS_HINT)
 
     if _find_fzf():
-        index = _pick_with_fzf(ctx, accounts, list(enumerate(accounts)), prompt=msg.FZF_REMOVE_PROMPT)
+        index = _pick_with_fzf(ctx, accounts, list(enumerate(accounts)), prompt=msg.FZF_REMOVE_PROMPT,
+                               show_date=True)
     else:
         index = _pick_by_number(accounts)
     if index is None or not ui.confirm(msg.PROMPT_REMOVE_ACCOUNT.format(name=label(accounts[index]))):
