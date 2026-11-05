@@ -5,81 +5,107 @@ import sys
 import pytest
 
 from utils import commands
-from utils.cli import translate_legacy
 from utils.utils import list_backups
 
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
 TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
 
 
-# --- old flags --------------------------------------------------------------------
+# --- flag parsing -------------------------------------------------------------------
 
-@pytest.mark.parametrize("old, new", [
-    (["--initialize"], ["import"]),
-    (["--list"], ["list"]),
-    (["--stats"], ["stats"]),
-    (["--list-backups"], ["backup", "list"]),
-    (["--backup"], ["backup", "create"]),
-    (["--backup", "--remove", "a", "b"], ["backup", "remove", "a", "b"]),
-    (["--backup", "--remove-all"], ["backup", "remove", "--all"]),
-    (["--restore", "x"], ["backup", "restore", "x"]),
-    (["--edit"], ["edit"]),
-    (["--edit", "--editor=vim", "--backup"], ["edit", "--backup", "--editor", "vim"]),
-    (["--editor=vim", "--backup", "--edit"], ["edit", "--backup", "--editor", "vim"]),
+@pytest.mark.parametrize("argv, action", [
+    ([], "get"),
+    (["github", "me"], "get"),
+    (["edit"], "get"),  # plain words are always a search, even command-like ones
+    (["list", "--no-copy"], "get"),
+    (["--", "-weird"], "get"),
+    (["--list"], "list"),
+    (["--stats"], "stats"),
+    (["--watch"], "watch"),
+    (["--edit"], "edit"),
+    (["--edit", "--backup", "--editor=vim"], "edit"),
+    (["--editor", "vim", "--backup", "--edit"], "edit"),
+    (["--initialize"], "initialize"),
+    (["--passwd"], "passwd"),
+    (["--forget"], "forget"),
+    (["--remember"], "remember"),
+    (["--migrate", "--yes"], "migrate"),
+    (["--backup"], "backup"),
+    (["--backup", "--remove", "a", "b"], "remove"),
+    (["--remove", "a"], "remove"),
+    (["--backup", "--remove-all"], "remove-all"),
+    (["--list-backups"], "list-backups"),
+    (["--restore", "x"], "restore"),
 ])
-def test_legacy_flags_translate(old, new):
-    translated, hint = translate_legacy(old)
-    assert translated == new
-    assert f"otpcli {' '.join(new)}" in hint
+def test_flags_pick_the_action(argv, action):
+    from utils.cli import parse
+    assert parse(argv).action == action
 
 
-@pytest.mark.parametrize("argv", [[], ["github"], ["list"], ["backup", "remove", "--all"], ["-h"]])
-def test_new_style_is_left_alone(argv):
-    assert translate_legacy(argv) == (argv, None)
+def test_query_words_are_kept():
+    from utils.cli import parse
+    args = parse(["--", "-weird", "edit"])
+    assert args.query == ["-weird", "edit"]
 
 
-def test_legacy_flag_prints_hint_and_works(cli):
-    cli.store(TWO)
-    code, out, err = cli.run("--list")
-    assert code == 0
-    assert out.splitlines() == ["GitHub (me)", "AWS (ops)"]
-    assert "is now 'otpcli list'" in err
-
-
-@pytest.mark.parametrize("argv", [["--listxyz"], ["--backupfoo"], ["list", "--nope"], ["--editor"]])
-def test_unknown_flags_are_rejected(cli, argv):
+@pytest.mark.parametrize("argv", [
+    ["--listxyz"], ["--backupfoo"], ["--lis"], ["--rem", "x"], ["--editor"],  # unknown, abbreviated, missing value
+    ["--list", "--stats"], ["--edit", "--list"], ["--restore", "x", "--backup"],  # two actions
+    ["github", "--list"],  # search words with an action
+    ["--list", "--no-copy"], ["--stats", "--clear-after", "5"],  # get-only options
+    ["--editor", "vim"], ["--yes"], ["--list", "--yes"],  # options without their action
+    ["--remove-all", "--remove", "x"],
+    ["--clear-after", "-1"], ["--clear-after", "soon"],
+])
+def test_bad_combinations_are_rejected(argv):
+    from utils.cli import parse
     with pytest.raises(SystemExit) as exc:
-        cli.run(*argv)
+        parse(argv)
     assert exc.value.code == 2
+
+
+def test_account_named_like_a_flag_name(cli):
+    cli.store([{"issuer": "edit", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}])
+    code, out, _ = cli.run("edit", "--no-copy")
+    assert code == 0 and "OTP code for edit (me):" in out
+
+
+def test_help(cli, capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.run("-h")
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    for flag in ("--list", "--edit", "--restore", "--initialize", "--passwd", "--clear-after"):
+        assert flag in out
 
 
 # --- general ----------------------------------------------------------------------
 
 def test_refuses_to_run_as_root(cli, monkeypatch):
     monkeypatch.setattr(os, "geteuid", lambda: 0)
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 1
     assert "no longer runs as root" in out
 
 
 def test_missing_store_suggests_import(cli):
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 1
-    assert "otpcli import" in out
+    assert "otpcli --initialize" in out
     assert "migrate" not in out
 
 
 def test_missing_store_suggests_migrate_when_old_file_exists(cli):
     cli.legacy_json.parent.mkdir(parents=True)
     cli.legacy_json.write_text(json.dumps(ACC))
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 1
-    assert "otpcli migrate" in out
+    assert "otpcli --migrate" in out
 
 
 def test_wrong_passphrase(cli, monkeypatch):
     cli.store(ACC, passphrase="something else")
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 1
     assert "Wrong passphrase" in out
 
@@ -98,16 +124,10 @@ def test_get_no_match(cli):
     assert code == 1 and "No matching accounts found." in out
 
 
-def test_account_named_like_a_command_via_get(cli):
-    cli.store([{"issuer": "list", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}])
-    code, out, _ = cli.run("get", "list", "--no-copy")
-    assert code == 0 and "OTP code for list (me):" in out
-
-
 @pytest.mark.parametrize("accounts, expected", [([], "Total accounts: 0"), (TWO, "Total accounts: 2")])
 def test_stats(cli, accounts, expected):
     cli.store(accounts)
-    code, out, _ = cli.run("stats")
+    code, out, _ = cli.run("--stats")
     assert code == 0 and expected in out
 
 
@@ -131,7 +151,7 @@ def editor(tmp_path, monkeypatch):
 def test_edit_saves_valid_changes(cli, editor, monkeypatch):
     cli.store(ACC)
     monkeypatch.setenv("EDIT_CONTENT", json.dumps(TWO))
-    code, out, _ = cli.run("edit", "--editor", editor)
+    code, out, _ = cli.run("--edit", "--editor", editor)
     assert code == 0 and "Saved 2 account(s)." in out
     assert cli.load() == TWO
     assert list_backups(str(cli.backups)) == []
@@ -140,14 +160,14 @@ def test_edit_saves_valid_changes(cli, editor, monkeypatch):
 def test_edit_removes_decrypted_temp_file(cli, editor, monkeypatch, tmp_path):
     cli.store(ACC)
     monkeypatch.setenv("EDIT_CONTENT", json.dumps(TWO))
-    cli.run("edit", "--editor", editor)
+    cli.run("--edit", "--editor", editor)
     temp = (tmp_path / "seen").read_text()
     assert not os.path.exists(temp)
     assert sorted(p.name for p in cli.secrets.parent.iterdir()) == ["secrets.enc"]
 
 
 @pytest.mark.parametrize("argv", [
-    ["edit", "--backup", "--editor", "EDITOR"],
+    ["--edit", "--backup", "--editor", "EDITOR"],
     ["--edit", "--editor=EDITOR", "--backup"],  # old order that used to skip the backup
 ])
 def test_edit_with_backup(cli, editor, monkeypatch, argv):
@@ -161,7 +181,7 @@ def test_edit_with_backup(cli, editor, monkeypatch, argv):
 
 def test_edit_without_changes(cli, editor):
     cli.store(ACC)
-    code, out, _ = cli.run("edit", "--editor", editor)
+    code, out, _ = cli.run("--edit", "--editor", editor)
     assert code == 0 and "No changes." in out
 
 
@@ -170,7 +190,7 @@ def test_edit_without_changes(cli, editor):
 def test_edit_rejects_invalid_content(cli, editor, monkeypatch, content):
     cli.store(ACC)
     monkeypatch.setenv("EDIT_CONTENT", content)
-    code, out, _ = cli.run("edit", "--editor", editor, answers=["n"])
+    code, out, _ = cli.run("--edit", "--editor", editor, answers=["n"])
     assert code == 1
     assert "Invalid secrets" in out and "Changes discarded." in out
     assert cli.load() == ACC
@@ -181,7 +201,7 @@ def test_edit_rejects_invalid_content(cli, editor, monkeypatch, content):
 def test_passwd(cli, monkeypatch):
     cli.store(ACC)
     monkeypatch.setattr(commands, "ask_new_passphrase", lambda: "brand new passphrase")
-    code, out, _ = cli.run("passwd")
+    code, out, _ = cli.run("--passwd")
     assert code == 0 and "Passphrase changed." in out
     assert cli.load("brand new passphrase") == ACC
     assert len(list_backups(str(cli.backups))) == 1
@@ -199,7 +219,7 @@ def write_legacy(cli, accounts):
 
 def test_migrate_imports_and_deletes_plaintext(cli):
     write_legacy(cli, TWO)
-    code, out, _ = cli.run("migrate", answers=["y"])
+    code, out, _ = cli.run("--migrate", answers=["y"])
     assert code == 0
     assert cli.load() == TWO
     assert not cli.legacy_json.exists()
@@ -208,19 +228,30 @@ def test_migrate_imports_and_deletes_plaintext(cli):
 
 def test_migrate_can_keep_old_files(cli):
     write_legacy(cli, ACC)
-    code, out, _ = cli.run("migrate", answers=["n"])
+    code, out, _ = cli.run("--migrate", answers=["n"])
     assert code == 0
     assert cli.load() == ACC
     assert cli.legacy_json.exists()
 
 
 def test_migrate_without_old_file(cli):
-    code, out, _ = cli.run("migrate")
+    code, out, _ = cli.run("--migrate")
     assert code == 1 and "Nothing to migrate" in out
 
 
-@pytest.mark.parametrize("argv", [["--no-copy", "git"], ["--no-copy"]])
-def test_get_options_without_command_name(cli, argv):
+@pytest.mark.parametrize("argv", [["--no-copy", "git"], ["git", "--no-copy"]])
+def test_get_options_before_or_after_words(cli, argv):
     cli.store(ACC)
     code, out, _ = cli.run(*argv)
     assert code == 0 and "OTP code for GitHub (me):" in out
+
+
+@pytest.mark.parametrize("argv", [
+    ["github", "--no-copy", "me"],
+    ["--no-copy", "github", "me"],
+    ["github", "me", "--clear-after", "5"],
+])
+def test_words_and_options_in_any_order(argv):
+    from utils.cli import parse
+    args = parse(argv)
+    assert args.action == "get" and args.query == ["github", "me"]

@@ -114,10 +114,10 @@ def test_backup_never_overwrites_even_if_name_appears_late(tmp_path, monkeypatch
 
 def test_restore_into_empty_store_is_private(cli):
     cli.store([{"issuer": "A", "name": "a", "secret": "JBSWY3DPEHPK3PXP"}])
-    cli.run("backup", "create")
+    cli.run("--backup")
     name = list_backups(str(cli.backups))[0]
     cli.secrets.unlink()
-    code, out, _ = cli.run("backup", "restore", name)
+    code, out, _ = cli.run("--restore", name)
     assert code == 0
     assert os.stat(cli.secrets).st_mode & 0o777 == 0o600
     assert cli.load()[0]["issuer"] == "A"

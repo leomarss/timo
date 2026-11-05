@@ -49,11 +49,11 @@ def test_asks_once_then_uses_keychain(cli, typed, keychain):
     cli.store(ACC)
 
     replies.append(PASSPHRASE)
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 0 and len(prompts) == 1
     assert "saved in your keychain" in out
 
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 0 and len(prompts) == 1  # not asked again
     assert "GitHub (me)" in out
 
@@ -64,7 +64,7 @@ def test_stale_keychain_passphrase_is_replaced(cli, typed, keychain):
     keychain.set_password(keystore.SERVICE, keystore.account_for(str(cli.secrets)), "old and wrong")
 
     replies.append(PASSPHRASE)
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 0
     assert "no longer works" in out
     assert len(prompts) == 1
@@ -76,15 +76,15 @@ def test_without_keychain_asks_every_time(cli, typed, monkeypatch):
     prompts, replies = typed
     cli.store(ACC)
     replies.extend([PASSPHRASE, PASSPHRASE])
-    assert cli.run("list")[0] == 0
-    code, out, err = cli.run("list")
+    assert cli.run("--list")[0] == 0
+    code, out, err = cli.run("--list")
     assert code == 0 and len(prompts) == 2
     assert "keychain" not in out + err
 
 
 def test_env_passphrase_never_touches_keychain(cli, keychain):
     cli.store(ACC)
-    assert cli.run("list")[0] == 0
+    assert cli.run("--list")[0] == 0
     assert keychain.items == {}
 
 
@@ -100,7 +100,7 @@ def test_broken_keychain_falls_back_to_prompt(cli, typed, monkeypatch):
     prompts, replies = typed
     cli.store(ACC)
     replies.append(PASSPHRASE)
-    code, out, _ = cli.run("list")
+    code, out, _ = cli.run("--list")
     assert code == 0 and "GitHub (me)" in out
 
 
@@ -108,20 +108,20 @@ def test_forget_and_remember(cli, typed, keychain):
     prompts, replies = typed
     cli.store(ACC)
     replies.append(PASSPHRASE)
-    cli.run("list")
+    cli.run("--list")
     assert keychain.items
 
-    code, out, _ = cli.run("forget")
+    code, out, _ = cli.run("--forget")
     assert code == 0 and keychain.items == {}
 
     replies.append(PASSPHRASE)
-    cli.run("list")
+    cli.run("--list")
     assert keychain.items == {}  # not saved again after forget
 
-    code, out, _ = cli.run("remember")
+    code, out, _ = cli.run("--remember")
     assert code == 0
     replies.append(PASSPHRASE)
-    cli.run("list")
+    cli.run("--list")
     assert keystore.get(str(cli.secrets)) == PASSPHRASE
 
 
@@ -130,7 +130,7 @@ def test_new_store_saves_passphrase(cli, typed, keychain, monkeypatch):
     replies.extend(["first passphrase", "first passphrase"])
     cli.legacy_json.parent.mkdir(parents=True)
     cli.legacy_json.write_text('[{"issuer": "A", "name": "a", "secret": "JBSWY3DPEHPK3PXP"}]')
-    code, out, _ = cli.run("migrate", answers=["n"])
+    code, out, _ = cli.run("--migrate", answers=["n"])
     assert code == 0
     assert keystore.get(str(cli.secrets)) == "first passphrase"
 
@@ -139,9 +139,9 @@ def test_passwd_updates_keychain(cli, typed, keychain, monkeypatch):
     prompts, replies = typed
     cli.store(ACC)
     replies.append(PASSPHRASE)
-    cli.run("list")
+    cli.run("--list")
     monkeypatch.setattr(commands, "ask_new_passphrase", lambda: "a new passphrase")
-    code, out, _ = cli.run("passwd")
+    code, out, _ = cli.run("--passwd")
     assert code == 0
     assert keystore.get(str(cli.secrets)) == "a new passphrase"
     assert cli.load("a new passphrase") == ACC

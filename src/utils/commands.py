@@ -87,7 +87,7 @@ def _remember(ctx, passphrase, announce=True):
         return
     if keystore.set(ctx.secrets_path, passphrase) and announce:
         print("Passphrase saved in your keychain; otpcli won't ask again on this machine "
-              "('otpcli forget' to undo).")
+              "('otpcli --forget' to undo).")
 
 
 def open_vault(ctx):
@@ -95,9 +95,9 @@ def open_vault(ctx):
     if ctx._vault is not None:
         return ctx._vault, ctx._vault.load()
     if not os.path.exists(ctx.secrets_path):
-        msg = f"No secrets found at {ctx.secrets_path}.\nAdd accounts with:  otpcli import"
+        msg = f"No secrets found at {ctx.secrets_path}.\nAdd accounts with:  otpcli --initialize"
         if os.path.exists(ctx.legacy_json):
-            msg += "\nOr move your secrets from the old sudo version with:  otpcli migrate"
+            msg += "\nOr move your secrets from the old sudo version with:  otpcli --migrate"
         raise Abort(msg)
 
     if _keychain_enabled(ctx):
@@ -366,7 +366,7 @@ def cmd_backup_list(args, ctx):
 def cmd_backup_remove(args, ctx):
     if args.all:
         if args.names:
-            print("Give backup names or --all, not both.")
+            print("Give backup names or --remove-all, not both.")
             return 1
         files = list_backups(ctx.backup_dir)
         if not files:
@@ -382,7 +382,7 @@ def cmd_backup_remove(args, ctx):
         return 0
 
     if not args.names:
-        print("Please specify at least one backup file to remove (or --all).")
+        print("Please specify at least one backup file to remove (or --remove-all).")
         return 1
     removed = 0
     for name in args.names:
@@ -409,7 +409,7 @@ def cmd_backup_restore(args, ctx):
         print(e)
         return 1
     if not os.path.isfile(path):
-        print(f"Backup not found: {args.name}. Use 'otpcli backup list' to see available backups.")
+        print(f"Backup not found: {args.name}. Use 'otpcli --list-backups' to see available backups.")
         return 1
 
     if not os.path.exists(ctx.secrets_path):
@@ -459,7 +459,7 @@ def cmd_forget(args, ctx):
     with open(_no_keychain_marker(ctx), "w"):
         pass
     print("Passphrase removed from your keychain." if removed else "No passphrase was saved in your keychain.")
-    print("otpcli will ask for it every time. Use 'otpcli remember' to save it again.")
+    print("otpcli will ask for it every time. Use 'otpcli --remember' to save it again.")
     return 0
 
 

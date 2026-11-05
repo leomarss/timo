@@ -1,4 +1,8 @@
-"""Command-line entry point: argparse subcommands plus translation of the old flags."""
+"""Command-line entry point.
+
+Every option starts with '-' or '--'; plain words are always a search, so an
+account can be called "edit" or "list" without clashing with a command.
+"""
 import argparse
 import os
 import sys
@@ -9,20 +13,36 @@ from utils.commands import Abort, Context
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_DIR = os.path.dirname(SRC_DIR)
 
-SUBCOMMANDS = {"get", "list", "stats", "watch", "edit", "backup", "import", "passwd", "forget", "remember",
-               "migrate", "help"}
-
 DESCRIPTION = "TOTP CLI - Terminal One-Time Password"
 EPILOG = """\
 examples:
   otpcli                     pick an account with fzf and copy its code
   otpcli github              copy the code if exactly one account matches "github"
-  otpcli backup restore <NAME>
-  otpcli <command> -h        help for one command
+  otpcli --edit --backup     back up, then edit the accounts
+  otpcli -- -weird           search for a word that starts with "-"
 
 Secrets are encrypted with your passphrase in ~/.config/totp-cli/
 (override with TOTP_CLI_HOME).
 """
+
+# action name -> (flag, handler)
+ACTIONS = {
+    "list": ("--list", commands.cmd_list),
+    "stats": ("--stats", commands.cmd_stats),
+    "watch": ("--watch", commands.cmd_watch),
+    "edit": ("--edit", commands.cmd_edit),
+    "initialize": ("--initialize", commands.cmd_import),
+    "passwd": ("--passwd", commands.cmd_passwd),
+    "forget": ("--forget", commands.cmd_forget),
+    "remember": ("--remember", commands.cmd_remember),
+    "migrate": ("--migrate", commands.cmd_migrate),
+    "list-backups": ("--list-backups", commands.cmd_backup_list),
+    "restore": ("--restore", commands.cmd_backup_restore),
+    "remove": ("--remove", commands.cmd_backup_remove),
+    "remove-all": ("--remove-all", commands.cmd_backup_remove),
+    "backup": ("--backup", commands.cmd_backup_create),
+    "get": (None, commands.cmd_get),
+}
 
 
 def config_dir():
@@ -55,103 +75,89 @@ def _seconds(value):
 
 def build_parser():
     parser = argparse.ArgumentParser(
-        prog="otpcli", description=DESCRIPTION, epilog=EPILOG,
+        prog="otpcli",
+        usage="otpcli [WORDS...] [--no-copy] [--clear-after SECONDS]\n       otpcli --<action> [options]",
+        description=DESCRIPTION, epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        allow_abbrev=False,  # flags must be spelled out: --lis is not --list
     )
-    sub = parser.add_subparsers(dest="command", metavar="<command>")
+    parser.add_argument("query", nargs="*", metavar="WORDS",
+                        help="copy the code of the account matching all words (fzf picker if several match)")
 
-    p = sub.add_parser("get", help="copy a code (default when you just type search words)")
-    p.add_argument("query", nargs="*", help="words that must all appear in issuer or account name")
-    p.add_argument("--no-copy", action="store_true", help="print the code without copying it")
-    p.add_argument("--clear-after", type=_seconds, metavar="SECONDS",
-                   help="clear the clipboard after this many seconds, 0 = never "
-                        "(default: $TOTP_CLI_CLEAR_AFTER or 45)")
-    p.set_defaults(func=commands.cmd_get)
+    get = parser.add_argument_group("copying a code")
+    get.add_argument("--no-copy", action="store_true", help="print the code without copying it")
+    get.add_argument("--clear-after", type=_seconds, metavar="SECONDS",
+                     help="clear the clipboard after SECONDS, 0 = never (default: $TOTP_CLI_CLEAR_AFTER or 45)")
 
-    sub.add_parser("list", help="print all account labels").set_defaults(func=commands.cmd_list)
-    sub.add_parser("stats", help="show account counts per issuer").set_defaults(func=commands.cmd_stats)
-    sub.add_parser("watch", help="show all codes, refreshing every second").set_defaults(func=commands.cmd_watch)
+    acts = parser.add_argument_group("actions")
+    acts.add_argument("--list", action="store_true", help="print all account labels")
+    acts.add_argument("--stats", action="store_true", help="show account counts per issuer")
+    acts.add_argument("--watch", action="store_true", help="show all codes, refreshing every second")
+    acts.add_argument("--edit", action="store_true", help="edit the decrypted accounts in your editor")
+    acts.add_argument("--editor", metavar="CMD", help="with --edit: editor to use (default: $EDITOR, then vi/nano/vim)")
+    acts.add_argument("--initialize", action="store_true", help="import accounts from a Google Authenticator export")
+    acts.add_argument("--passwd", action="store_true", help="change the passphrase")
+    acts.add_argument("--forget", action="store_true", help="remove the passphrase from your keychain and stop saving it")
+    acts.add_argument("--remember", action="store_true", help="save the passphrase in your keychain again")
+    acts.add_argument("--migrate", action="store_true", help="move secrets from the old sudo version (json/secrets.json)")
+    acts.add_argument("--yes", action="store_true", help="with --migrate: delete the old plaintext files without asking")
 
-    p = sub.add_parser("edit", help="edit the decrypted accounts in your editor")
-    p.add_argument("--backup", action="store_true", help="back up before saving changes")
-    p.add_argument("--editor", metavar="CMD", help="editor to use (default: $EDITOR, then vi/nano/vim)")
-    p.set_defaults(func=commands.cmd_edit)
-
-    backup = sub.add_parser("backup", help="create, list, remove or restore backups")
-    bsub = backup.add_subparsers(dest="backup_command", metavar="<action>")
-    bsub.add_parser("create", help="create a backup now").set_defaults(func=commands.cmd_backup_create)
-    bsub.add_parser("list", help="list backups").set_defaults(func=commands.cmd_backup_list)
-    p = bsub.add_parser("remove", help="delete backups")
-    p.add_argument("names", nargs="*", metavar="NAME")
-    p.add_argument("--all", action="store_true", help="delete every backup (asks first)")
-    p.set_defaults(func=commands.cmd_backup_remove)
-    p = bsub.add_parser("restore", help="restore a backup (the current secrets are backed up first)")
-    p.add_argument("name", metavar="NAME")
-    p.set_defaults(func=commands.cmd_backup_restore)
-    backup.set_defaults(func=commands.cmd_backup_create)  # plain "otpcli backup"
-
-    sub.add_parser("import", help="import accounts from a Google Authenticator export").set_defaults(func=commands.cmd_import)
-    sub.add_parser("passwd", help="change the passphrase").set_defaults(func=commands.cmd_passwd)
-    sub.add_parser("forget", help="remove the passphrase from your keychain and stop saving it").set_defaults(
-        func=commands.cmd_forget)
-    sub.add_parser("remember", help="save the passphrase in your keychain again").set_defaults(
-        func=commands.cmd_remember)
-
-    p = sub.add_parser("migrate", help="move secrets from the old sudo version (json/secrets.json)")
-    p.add_argument("--yes", action="store_true", help="delete the old plaintext files without asking")
-    p.set_defaults(func=commands.cmd_migrate)
-
-    sub.add_parser("help", help="show this help")
+    backups = parser.add_argument_group("backups")
+    backups.add_argument("--backup", action="store_true",
+                         help="create a backup (with --edit: back up before saving changes)")
+    backups.add_argument("--list-backups", action="store_true", help="show available backups")
+    backups.add_argument("--restore", metavar="NAME", help="restore a backup (current secrets are backed up first)")
+    backups.add_argument("--remove", nargs="+", metavar="NAME", help="delete backups (also: --backup --remove NAME...)")
+    backups.add_argument("--remove-all", action="store_true", help="delete all backups (asks first)")
     return parser
 
 
-LEGACY_FLAGS = {
-    "--initialize", "--list", "--stats", "--edit", "--backup", "--remove",
-    "--remove-all", "--list-backups", "--restore",
-}
-
-LEGACY_HINTS = {
-    "--initialize": "import",
-    "--list": "list",
-    "--stats": "stats",
-    "--list-backups": "backup list",
-}
-
-
-def translate_legacy(argv):
-    """Map the old flag interface onto subcommands. Returns (argv, hint or None)."""
-    if not argv or argv[0] in SUBCOMMANDS:
-        return argv, None
-    if not any(a in LEGACY_FLAGS or a.startswith("--editor=") for a in argv):
-        return argv, None
-
-    def after(flag):
-        return argv[argv.index(flag) + 1:]
-
-    if "--edit" in argv:
-        new = ["edit"]
-        if "--backup" in argv:
-            new.append("--backup")
-        for a in argv:
-            if a.startswith("--editor="):
-                new += ["--editor", a.split("=", 1)[1]]
-    elif "--backup" in argv and "--remove-all" in argv:
-        new = ["backup", "remove", "--all"]
-    elif "--backup" in argv and "--remove" in argv:
-        new = ["backup", "remove"] + after("--remove")
-    elif "--backup" in argv:
-        new = ["backup", "create"]
-    elif "--restore" in argv:
-        new = ["backup", "restore"] + after("--restore")[:1]
-    else:
-        flag = next((a for a in argv if a in LEGACY_HINTS), None)
+def _chosen_actions(args):
+    chosen = []
+    for name, (flag, _) in ACTIONS.items():
         if flag is None:
-            return argv, None
-        new = LEGACY_HINTS[flag].split()
+            continue
+        value = getattr(args, flag[2:].replace("-", "_"))
+        if value not in (None, False):
+            chosen.append(name)
+    # --backup is a modifier of --edit, --remove and --remove-all
+    if "backup" in chosen and any(a in chosen for a in ("edit", "remove", "remove-all")):
+        chosen.remove("backup")
+    return chosen
 
-    old = " ".join(a for a in argv if a.startswith("-"))
-    return new, f"Note: '{old}' is now 'otpcli {' '.join(new)}'. The old flags still work for now."
 
+def parse(argv):
+    parser = build_parser()
+    # everything after "--" is a search word; intermixed parsing loses track of "--" itself
+    literal = []
+    if "--" in argv:
+        i = argv.index("--")
+        argv, literal = argv[:i], argv[i + 1:]
+    args = parser.parse_intermixed_args(argv)  # search words may come before and after options
+    args.query = args.query + literal
+    chosen = _chosen_actions(args)
+
+    if len(chosen) > 1:
+        parser.error("use only one of: " + ", ".join(ACTIONS[a][0] for a in chosen))
+    action = chosen[0] if chosen else "get"
+
+    if action != "get":
+        if args.query:
+            parser.error(f"search words can't be combined with {ACTIONS[action][0]}")
+        if args.no_copy or args.clear_after is not None:
+            parser.error("--no-copy and --clear-after only apply when copying a code")
+    if args.editor is not None and action != "edit":
+        parser.error("--editor only works with --edit")
+    if args.yes and action != "migrate":
+        parser.error("--yes only works with --migrate")
+
+    # names the command handlers expect
+    args.action = action
+    args.func = ACTIONS[action][1]
+    args.names = args.remove or []
+    args.all = args.remove_all
+    args.name = args.restore
+    return args
 
 
 def main(argv=None):
@@ -159,23 +165,10 @@ def main(argv=None):
 
     if hasattr(os, "geteuid") and os.geteuid() == 0:
         print("otpcli no longer runs as root. Run it as your normal user (remove sudo from your alias).")
-        print("Moving from the old sudo version? Run as yourself:  otpcli migrate")
+        print("Moving from the old sudo version? Run as yourself:  otpcli --migrate")
         return 1
 
-    argv, hint = translate_legacy(argv)
-    if hint:
-        print(hint, file=sys.stderr)
-
-    # anything that isn't a command name (search words, --no-copy, nothing) means "get"
-    if not argv or (argv[0] not in SUBCOMMANDS and argv[0] not in ("-h", "--help")):
-        argv = ["get"] + argv
-
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if args.command == "help":
-        parser.print_help()
-        return 0
-
+    args = parse(argv)
     try:
         return args.func(args, make_context())
     except Abort as e:

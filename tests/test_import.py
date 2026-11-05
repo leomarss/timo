@@ -49,9 +49,9 @@ def test_parse_rejects_missing_data():
 
 
 def run_import(cli, monkeypatch, *uris, answers=("y",)):
-    """Run 'otpcli import', pasting each URI in turn."""
+    """Run 'otpcli --initialize', pasting each URI in turn."""
     monkeypatch.setattr(sys, "stdin", io.StringIO("".join(u + "\n" for u in uris)))
-    return cli.run("import", answers=answers)
+    return cli.run("--initialize", answers=answers)
 
 
 A = ("GitHub", "me", b"0123456789")

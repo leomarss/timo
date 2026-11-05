@@ -52,24 +52,24 @@ def test_backups_in_the_same_second_do_not_overwrite_each_other(tmp_path):
 
 def test_backup_create_and_list(cli):
     cli.store(ACC)
-    code, out, _ = cli.run("backup", "create")
+    code, out, _ = cli.run("--backup")
     assert code == 0 and "Backup saved to:" in out
-    code, out, _ = cli.run("backup", "list")
+    code, out, _ = cli.run("--list-backups")
     assert code == 0 and "secrets.enc.bak." in out
 
 
 def test_backup_list_without_backup_dir(cli):
-    code, out, _ = cli.run("backup", "list")
+    code, out, _ = cli.run("--list-backups")
     assert code == 0 and "No backups found" in out
 
 
 def test_restore_backs_up_current_first(cli):
     cli.store(ACC)
-    cli.run("backup", "create")
+    cli.run("--backup")
     name = list_backups(str(cli.backups))[0]
     cli.store(OTHER)
 
-    code, out, _ = cli.run("backup", "restore", name)
+    code, out, _ = cli.run("--restore", name)
 
     assert code == 0
     assert "Previous secrets saved to:" in out
@@ -79,7 +79,7 @@ def test_restore_backs_up_current_first(cli):
 
 def test_restore_backup_made_with_older_passphrase(cli, monkeypatch):
     cli.store(ACC, passphrase="old passphrase")
-    cli.run("backup", "create")  # backup copies the file as-is
+    cli.run("--backup")  # backup copies the file as-is
     name = list_backups(str(cli.backups))[0]
     cli.store(OTHER)  # current store uses the test passphrase
 
@@ -94,7 +94,7 @@ def test_restore_backup_made_with_older_passphrase(cli, monkeypatch):
         return real_ask(prompt)
 
     monkeypatch.setattr(commands, "_ask", ask)
-    code, out, _ = cli.run("backup", "restore", name)
+    code, out, _ = cli.run("--restore", name)
 
     assert code == 0, out
     assert asked
@@ -104,7 +104,7 @@ def test_restore_backup_made_with_older_passphrase(cli, monkeypatch):
 @pytest.mark.parametrize("name", ["../../etc/passwd", "secrets.enc.bak.2000-01-01_00-00-00"])
 def test_restore_rejects_bad_or_missing_names(cli, name):
     cli.store(ACC)
-    code, out, _ = cli.run("backup", "restore", name)
+    code, out, _ = cli.run("--restore", name)
     assert code == 1
     assert cli.load() == ACC
     assert list_backups(str(cli.backups)) == []
@@ -113,21 +113,21 @@ def test_restore_rejects_bad_or_missing_names(cli, name):
 def test_remove_rejects_traversal(cli, tmp_path):
     victim = tmp_path / "victim.txt"
     victim.write_text("keep")
-    code, out, _ = cli.run("backup", "remove", "../../victim.txt")
+    code, out, _ = cli.run("--backup", "--remove", "../../victim.txt")
     assert "Skipped: Invalid backup name" in out
     assert victim.read_text() == "keep"
 
 
 def test_remove_all_without_backup_dir(cli):
-    code, out, _ = cli.run("backup", "remove", "--all")
+    code, out, _ = cli.run("--backup", "--remove-all")
     assert code == 0 and "No backups to remove." in out
 
 
 def test_remove_all_deletes_only_backups(cli):
     cli.store(ACC)
-    cli.run("backup", "create")
+    cli.run("--backup")
     (cli.backups / "notes.txt").write_text("mine")
-    code, out, _ = cli.run("backup", "remove", "--all", answers=["y"])
+    code, out, _ = cli.run("--backup", "--remove-all", answers=["y"])
     assert code == 0
     assert list_backups(str(cli.backups)) == []
     assert (cli.backups / "notes.txt").exists()

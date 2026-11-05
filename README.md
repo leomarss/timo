@@ -62,7 +62,7 @@ alias otpcli='~/totp-cli/env/bin/python ~/totp-cli/src/app.py'
 Then add your accounts:
 
 ```bash
-otpcli import
+otpcli --initialize
 ```
 
 The first time, you choose a passphrase. It encrypts your secrets. **If you forget it, the secrets cannot be recovered**, so keep your Google Authenticator export (or another copy) somewhere safe.
@@ -76,7 +76,7 @@ Earlier versions ran with `sudo` and kept unencrypted secrets in `json/secrets.j
 1. Remove `sudo` from your alias (see above). otpcli now refuses to run as root.
 2. Run, as your normal user:
    ```bash
-   otpcli migrate
+   otpcli --migrate
    ```
    It reads the old root-owned file with `sudo cat` (the only step that needs sudo), asks you for a new passphrase, saves the encrypted secrets to `~/.config/totp-cli/`, and offers to delete the old plaintext `json/secrets.json` and `json/backups/`.
 
@@ -85,39 +85,40 @@ Earlier versions ran with `sudo` and kept unencrypted secrets in `json/secrets.j
 ```
 otpcli                            Pick an account with fzf and copy its code
 otpcli <words...>                 Copy the code if exactly one account matches all words
-otpcli get <words...>             Same, explicitly (use it for words like "list")
     --no-copy                     Print the code without copying it
     --clear-after SECONDS         Clear the clipboard after SECONDS (0 = never; default 45)
+otpcli -- <words...>              Search for words that start with "-"
 
-otpcli list                       Print all account labels
-otpcli stats                      Show account counts per issuer
-otpcli watch                      Show all codes, refreshing every second
-otpcli edit [--backup] [--editor CMD]
-                                  Edit the decrypted accounts in your editor
-otpcli import                     Import from a Google Authenticator export
-otpcli passwd                     Change the passphrase
-otpcli forget                     Remove the passphrase from the keychain and stop saving it
-otpcli remember                   Save it in the keychain again on the next unlock
-otpcli migrate [--yes]            Move secrets from the old sudo version
+--list                            Print all account labels
+--stats                           Show account counts per issuer
+--watch                           Show all codes, refreshing every second
+--edit                            Edit the decrypted accounts in your editor
+--edit --backup                   Back up before saving the changes
+--edit --editor=<CMD>             Use a specific editor (e.g. --editor=vim)
+--initialize                      Import from a Google Authenticator export
+--passwd                          Change the passphrase
+--forget                          Remove the passphrase from the keychain and stop saving it
+--remember                        Save it in the keychain again on the next unlock
+--migrate [--yes]                 Move secrets from the old sudo version
 
-otpcli backup                     Create a backup (same as: backup create)
-otpcli backup list                Show available backups
-otpcli backup remove <NAMES...>   Delete backups
-otpcli backup remove --all        Delete all backups (asks first)
-otpcli backup restore <NAME>      Restore a backup (current secrets are backed up first)
+--backup                          Create a backup
+--list-backups                    Show available backups
+--backup --remove <NAMES...>      Delete backups
+--backup --remove-all             Delete all backups (asks first)
+--restore <NAME>                  Restore a backup (current secrets are backed up first)
 
-otpcli -h | otpcli <command> -h   Help
+--help, -h                        Help
 ```
 
-The old flags (`--list`, `--stats`, `--edit`, `--backup`, `--restore`, `--initialize`…) still work and print the new form of the command.
+Every option starts with `-` or `--`, and plain words are always a search, so an account can be called "edit" or "list". Options must be spelled out in full, and only one action can be used at a time.
 
 ### Importing
 
-`otpcli import` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.
+`otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.
 
 ### Editing
 
-`otpcli edit` decrypts your accounts into a temporary file (inside `~/.config/totp-cli/`, readable only by you), opens your editor, checks the result and re-encrypts it. The temporary file is deleted afterwards. If the edited file isn't valid, you can fix it or discard the changes.
+`otpcli --edit` decrypts your accounts into a temporary file (inside `~/.config/totp-cli/`, readable only by you), opens your editor, checks the result and re-encrypts it. The temporary file is deleted afterwards. If the edited file isn't valid, you can fix it or discard the changes.
 
 ## 🧾 Example Output
 
@@ -129,7 +130,7 @@ Valid for another 17 seconds (copied to clipboard, clears in 45s)
 ```
 
 ```
-$ otpcli stats
+$ otpcli --stats
 
 TOTP CLI - Account Stats
 
@@ -155,7 +156,7 @@ Everything lives in `~/.config/totp-cli/` (or `$XDG_CONFIG_HOME/totp-cli/`, or t
 
 `secrets.enc` is encrypted with AES-256-GCM using a key derived from your passphrase with scrypt. The folder is readable only by you (`700`), the files too (`600`). Every save and backup is written to a temporary file, flushed to disk, and only then renamed into place, so a crash or full disk never leaves a half-written file.
 
-Decrypted (as shown by `otpcli edit`), the accounts are a JSON list:
+Decrypted (as shown by `otpcli --edit`), the accounts are a JSON list:
 
 ```json
 [
@@ -199,19 +200,19 @@ The first time you unlock, otpcli saves the passphrase in your OS keychain (entr
 - **Linux desktop:** GNOME Keyring / KWallet (Secret Service), normally unlocked when you log in.
 - **No keychain** (SSH sessions, headless servers, WSL, containers): otpcli asks for the passphrase each time, as before.
 
-otpcli never uses "keyrings" that store passwords in a plain file. If the saved passphrase stops working (e.g. after `otpcli passwd` elsewhere), otpcli asks again and updates it. `otpcli passwd` updates it too.
+otpcli never uses "keyrings" that store passwords in a plain file. If the saved passphrase stops working (e.g. after `otpcli --passwd` elsewhere), otpcli asks again and updates it. `otpcli --passwd` updates it too.
 
-Anyone using your unlocked session can get codes without the passphrase. To go back to typing it every time, run `otpcli forget`; `otpcli remember` turns it back on.
+Anyone using your unlocked session can get codes without the passphrase. To go back to typing it every time, run `otpcli --forget`; `otpcli --remember` turns it back on.
 
 ## 🧯 Backup and Restore
 
 - Backups are encrypted copies, kept in `~/.config/totp-cli/backups/`
 - `import`, `edit --backup`, `passwd` and `backup restore` back up automatically before changing anything
-- Backups keep the passphrase they were made with. Restoring one made before `otpcli passwd` asks for that older passphrase and re-encrypts it with the current one.
+- Backups keep the passphrase they were made with. Restoring one made before `otpcli --passwd` asks for that older passphrase and re-encrypts it with the current one.
 
 ```bash
-otpcli backup list
-otpcli backup restore secrets.enc.bak.2025-04-18_23-30-00
+otpcli --list-backups
+otpcli --restore secrets.enc.bak.2025-04-18_23-30-00
 ```
 
 ## 🧪 Tests
@@ -227,10 +228,10 @@ totp-cli/
 ├── env/                         # Python virtual environment
 ├── src/
 │   ├── app.py                   # Main CLI entrypoint
-│   ├── monitor.py               # Same as "otpcli watch"
+│   ├── monitor.py               # Same as "otpcli --watch"
 │   ├── requirements.txt
 │   └── utils/
-│       ├── cli.py               # Argument parsing, old-flag translation
+│       ├── cli.py               # Argument parsing
 │       ├── commands.py          # Command handlers
 │       ├── vault.py             # Encrypted storage
 │       ├── keystore.py          # OS keychain for the passphrase
@@ -249,7 +250,7 @@ totp-cli/
 ## 📌 Credits
 
 This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
-Make sure it is installed to use `otpcli import` with QR images.
+Make sure it is installed to use `otpcli --initialize` with QR images.
 
 
 ## 💙 License
