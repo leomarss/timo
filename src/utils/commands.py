@@ -6,7 +6,8 @@ from utils.utils import (
     restore_backup,
     list_backups,
     get_stats,
-    initialize_otp_setup
+    initialize_otp_setup,
+    resolve_backup_path
 )
 
 HELP_MSG = """
@@ -98,8 +99,12 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
 
             removed = 0
             for filename in to_remove:
-                path = os.path.join(backup_dir, filename)
-                if os.path.exists(path):
+                try:
+                    path = resolve_backup_path(backup_dir, filename)
+                except ValueError as e:
+                    print(f"Skipped: {e}")
+                    continue
+                if os.path.isfile(path):
                     os.remove(path)
                     print(f"Removed: {filename}")
                     removed += 1
@@ -140,7 +145,11 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
             print("Please provide the name of the backup file to restore.")
             sys.exit(1)
 
-        restored = restore_backup(restore_name, backup_dir, json_path)
+        try:
+            restored = restore_backup(restore_name, backup_dir, json_path)
+        except ValueError as e:
+            print(e)
+            sys.exit(1)
         print(f"Backup restored from: {restored}")
         sys.exit(0)
 
@@ -155,5 +164,5 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
         sys.exit(0)
         
     if "--initialize" in argv:
-        initialize_otp_setup()
+        initialize_otp_setup(json_path, backup_dir)
         sys.exit(0)

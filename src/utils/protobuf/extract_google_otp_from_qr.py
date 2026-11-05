@@ -1,57 +1,48 @@
-import sys
-import os
 import base64
-import json
-import subprocess
-from urllib.parse import unquote
-
-if os.geteuid() != 0:
-    print("This script must be run as root (use sudo).")
-    sys.exit(1)
+import os
+import sys
+from urllib.parse import unquote, urlsplit
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_dir)
 
-import migration_pb2 # import after sys.path.insert otherwise it will not find the module
+import migration_pb2  # import after sys.path.insert otherwise it will not find the module
 
-json_path = os.path.join(script_dir, "../../../json/secrets.json")
 
-uri = os.environ.get("MIGRATION_STRING")
-if not uri:
-    uri = input("Paste otpauth-migration string: ").strip()
+def parse_migration_uri(uri):
+    """Decode an otpauth-migration:// URI from Google Authenticator.
 
-data_b64 = uri.split("data=")[1]
-data_b64 = unquote(data_b64)
-missing_padding = len(data_b64) % 4
-if missing_padding:
-    data_b64 += '=' * (4 - missing_padding)
+    Returns (accounts, batch_index, batch_size). Large exports are split
+    across several QR codes; batch_index is 0-based.
+    """
+    parts = urlsplit(uri.strip())
+    if parts.scheme != "otpauth-migration":
+        raise ValueError("Not an otpauth-migration:// URI.")
 
-data_bytes = base64.urlsafe_b64decode(data_b64)
+    data_b64 = None
+    for param in parts.query.split("&"):
+        if param.startswith("data="):
+            # unquote (not unquote_plus): '+' is a valid base64 character
+            data_b64 = unquote(param[len("data="):])
+            break
+    if not data_b64:
+        raise ValueError("Migration URI has no data parameter.")
 
-payload = migration_pb2.MigrationPayload()
-payload.ParseFromString(data_bytes)
+    data_b64 += "=" * (-len(data_b64) % 4)
+    try:
+        # Google uses standard base64; accept the URL-safe alphabet too
+        data_bytes = base64.b64decode(data_b64.replace("-", "+").replace("_", "/"), validate=True)
+        payload = migration_pb2.MigrationPayload()
+        payload.ParseFromString(data_bytes)
+    except Exception as e:
+        raise ValueError(f"Could not decode migration data: {e}") from e
 
-print("\nAccounts found:")
-accounts = []
+    accounts = []
+    for param in payload.otp_parameters:
+        accounts.append({
+            "issuer": param.issuer or "unknown",
+            "name": param.name,
+            "secret": base64.b32encode(param.secret).decode("utf-8").replace("=", ""),
+        })
 
-for param in payload.otp_parameters:
-    secret_b32 = base64.b32encode(param.secret).decode("utf-8").replace("=", "")
-    issuer = param.issuer or "unknown"
-    name = param.name
-    print(f"{issuer} ({name}): {secret_b32}")
-    accounts.append({
-        "issuer": issuer,
-        "name": name,
-        "secret": secret_b32
-    })
-
-# create parent folder if needed
-os.makedirs(os.path.dirname(json_path), exist_ok=True)
-
-with open(json_path, "w") as f:
-    json.dump(accounts, f, indent=2)
-
-subprocess.run(["chown", "root:", json_path], check=True)
-subprocess.run(["chmod", "600", json_path], check=True)
-
-print("\nFile saved in json/secrets.json with secure permissions.")
+    return accounts, payload.batch_index, max(payload.batch_size, 1)
