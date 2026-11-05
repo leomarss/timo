@@ -38,7 +38,10 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
         "--list-backups", "--restore"
     }
 
-    unrecognized = [arg for arg in argv if arg.startswith("-") and not any(arg.startswith(flag) for flag in known_flags)]
+    unrecognized = [
+        arg for arg in argv[1:]
+        if arg.startswith("-") and arg not in known_flags and not arg.startswith("--editor=")
+    ]
     if unrecognized:
         for cmd in unrecognized:
             print(f"{cmd} command not found. Use --help for usage information.")
@@ -144,13 +147,16 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
             sys.exit(1)
 
         try:
-            restored = restore_backup(restore_name, backup_dir, json_path)
+            restored, safety = restore_backup(restore_name, backup_dir, json_path)
         except ValueError as e:
             print(e)
             sys.exit(1)
         except FileNotFoundError:
             print(f"Backup not found: {restore_name}. Use --list-backups to see available backups.")
             sys.exit(1)
+        if safety:
+            rel_safety = os.path.relpath(safety, start=os.path.dirname(script_dir))
+            print(f"Previous secrets saved to: {rel_safety}")
         print(f"Backup restored from: {restored}")
         sys.exit(0)
 

@@ -4,7 +4,7 @@ import subprocess
 import pyperclip
 import shutil
 
-from utils.utils import load_accounts, generate_otp
+from utils.utils import load_accounts, generate_otp, fzf_args
 from utils.commands import handle_commands
 
 env_user = os.environ.get("SUDO_USER") or os.environ.get("USER")
@@ -49,18 +49,19 @@ accounts = load_accounts(json_path)
 handle_commands(sys.argv, accounts, json_path, backup_dir, script_dir)
 
 # === Filter accounts by args ===
+# keep each account's position in secrets.json so duplicate labels stay distinct
 query = [q.lower() for q in sys.argv[1:] if not q.startswith("--")]
-if query:
-    filtered = [acc for acc in accounts if all(q in f"{acc['issuer']} {acc['name']}".lower() for q in query)]
-else:
-    filtered = accounts
+filtered = [
+    (i, acc) for i, acc in enumerate(accounts)
+    if all(q in f"{acc['issuer']} {acc['name']}".lower() for q in query)
+]
 
 if not filtered:
     print("No matching accounts found.")
     sys.exit(1)
 
 if len(filtered) == 1:
-    acc = filtered[0]
+    _, acc = filtered[0]
     label = f"{acc['issuer']} ({acc['name']})"
     code, remaining = generate_otp(acc)
     pyperclip.copy(code)
@@ -69,14 +70,10 @@ if len(filtered) == 1:
     sys.exit(0)
 
 # === fzf interactive ===
-choices = [f"{acc['issuer']} ({acc['name']})" for acc in filtered]
+# each line is "<index>\t<label>"; fzf shows and searches only the label
+choices = [f"{i}\t{acc['issuer']} ({acc['name']})" for i, acc in filtered]
 
-fzf_command = [
-    "fzf",
-    "--prompt=Select OTP: ",
-    "--preview", f"{python_path} {preview_script} {{}}",
-    "--preview-window=down:1:wrap"
-]
+fzf_command = fzf_args(python_path, preview_script)
 
 try:
     fzf = subprocess.run(
@@ -90,10 +87,10 @@ except subprocess.CalledProcessError:
     print("No selection made.")
     sys.exit(1)
 
-selected = fzf.stdout.strip()
-match = next((acc for acc in filtered if f"{acc['issuer']} ({acc['name']})" == selected), None)
-
-if not match:
+index_str, _, selected = fzf.stdout.rstrip("\n").partition("\t")
+try:
+    match = accounts[int(index_str)]
+except (ValueError, IndexError):
     print("Account not found.")
     sys.exit(1)
 

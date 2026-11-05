@@ -19,18 +19,19 @@ def get_color(seconds):
     else:
         return RED
 
-selected = sys.argv[1]
 script_dir = os.path.dirname(os.path.abspath(__file__))
 json_path = os.path.abspath(os.path.join(script_dir, "../../json/secrets.json"))
 
 with open(json_path, "r") as f:
     accounts = json.load(f)
 
-for acc in accounts:
-    label = f"{acc['issuer']} ({acc['name']})"
-    if label == selected:
-        code, seconds_left = generate_otp(acc)
-        color = get_color(seconds_left)
+# fzf passes the account's index in secrets.json, so duplicate labels resolve correctly
+try:
+    acc = accounts[int(sys.argv[1])]
+except (IndexError, ValueError):
+    sys.exit(0)
 
-        print(f"{BOLD}Code:{RESET} {color}{code}{RESET} - {BOLD}Expires in:{RESET} {color}{seconds_left} seconds{RESET}")
-        break
+code, seconds_left = generate_otp(acc)
+color = get_color(seconds_left)
+
+print(f"{BOLD}Code:{RESET} {color}{code}{RESET} - {BOLD}Expires in:{RESET} {color}{seconds_left} seconds{RESET}")

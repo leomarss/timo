@@ -115,8 +115,11 @@ def resolve_backup_path(backup_dir, backup_name):
 def create_backup(json_path, backup_dir):
     os.makedirs(backup_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    backup_name = f"{BACKUP_PREFIX}{timestamp}"
-    backup_path = os.path.join(backup_dir, backup_name)
+    backup_path = os.path.join(backup_dir, f"{BACKUP_PREFIX}{timestamp}")
+    n = 1
+    while os.path.exists(backup_path):  # never overwrite a backup made in the same second
+        backup_path = os.path.join(backup_dir, f"{BACKUP_PREFIX}{timestamp}_{n}")
+        n += 1
     shutil.copy2(json_path, backup_path)
     return backup_path
 
@@ -131,9 +134,35 @@ def list_backups(backup_dir):
 
 
 def restore_backup(backup_name, backup_dir, json_path):
+    """Restore a backup over json_path, backing up the current file first.
+
+    Returns (restored_path, safety_backup_path); the latter is None when
+    there was no current file to back up.
+    """
     full_path = resolve_backup_path(backup_dir, backup_name)
+    if not os.path.isfile(full_path):
+        raise FileNotFoundError(full_path)
+    safety_path = create_backup(json_path, backup_dir) if os.path.exists(json_path) else None
     shutil.copy2(full_path, json_path)
-    return full_path
+    return full_path, safety_path
+
+
+def fzf_args(python_path, preview_script):
+    """fzf command for lines of the form "<index>\t<label>".
+
+    --with-nth hides the index from display and search (fzf matches only the
+    shown text), but fzf still prints the whole line, index included.
+    Don't add --nth: with --with-nth, recent fzf applies it to the shown
+    text, so --nth=2.. would match nothing.
+    """
+    return [
+        "fzf",
+        "--prompt=Select OTP: ",
+        "--delimiter=\t",
+        "--with-nth=2..",
+        "--preview", f"{python_path} {preview_script} {{1}}",
+        "--preview-window=down:1:wrap",
+    ]
 
 
 def get_stats(accounts):

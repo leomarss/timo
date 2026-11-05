@@ -17,7 +17,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 
 ## 📦 Requirements
 
-- Python 3.7+
+- Python 3.9+
 - `fzf` installed and available in `$PATH`
 - Python packages listed in `requirements.txt`
 - A virtual environment (recommended)
