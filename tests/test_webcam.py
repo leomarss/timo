@@ -145,26 +145,31 @@ def kitty_payload(escapes):
     import re
     import zlib
 
-    parts = re.findall(r"\x1b_G([^;]*);([^\x1b]*)\x1b\\", escapes)
+    parts = re.findall(r"\x1b_G([^;\x1b]*);?([^\x1b]*)\x1b\\", escapes)  # showing and hiding carry no data
     data = zlib.decompress(base64.standard_b64decode("".join(chunk for _, chunk in parts)))
     return [keys for keys, _ in parts], data
 
 
-def test_kitty_image_shows_the_picture_over_the_given_cells():
+def test_kitty_image_uploads_then_shows_the_new_image_then_hides_the_previous_one():
     rgb = bytes(range(12))  # 2 x 2 pixels
-    keys, data = kitty_payload(webcam.kitty_image(rgb, 2, 2, 5, 3))
+    keys, data = kitty_payload(webcam.kitty_image(rgb, 2, 2, 5, 3, 1, 2))
     assert data == rgb
-    assert keys == [f"a=T,f=24,o=z,s=2,v=2,c=5,r=3,i={webcam.IMAGE_ID},p=1,C=1,q=2,m=0"]
+    assert keys == [
+        "a=t,f=24,o=z,s=2,v=2,i=1,q=2,m=0",  # upload as image 1, not shown yet
+        "a=p,i=1,p=1,c=5,r=3,C=1,q=2",  # then show it, over 5 x 3 cells
+        "a=d,d=i,i=2,q=2",  # then take image 2 away
+    ]
 
 
 def test_kitty_image_splits_large_pictures_into_chunks():
     rgb = os.urandom(300 * 200 * 3)  # random, so it doesn't compress into one chunk
-    keys, data = kitty_payload(webcam.kitty_image(rgb, 300, 200, 30, 10))
+    keys, data = kitty_payload(webcam.kitty_image(rgb, 300, 200, 30, 10, 1, 2))
     assert data == rgb
-    assert len(keys) > 1
-    assert keys[0].endswith(",m=1") and keys[0].startswith("a=T")
-    assert keys[1:-1] == ["m=1,q=2"] * (len(keys) - 2)
-    assert keys[-1] == "m=0,q=2"
+    uploads = keys[:-2]
+    assert len(uploads) > 1
+    assert uploads[0].startswith("a=t") and uploads[0].endswith(",m=1")
+    assert uploads[1:-1] == ["m=1,q=2"] * (len(uploads) - 2)
+    assert uploads[-1] == "m=0,q=2"
 
 
 def test_kitty_supported_when_the_terminal_says_ok():

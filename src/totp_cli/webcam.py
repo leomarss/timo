@@ -26,7 +26,8 @@ QUERY_TIMEOUT = 0.5  # seconds to wait for the terminal to say which graphics it
 DEFAULT_CELL = (8, 16)  # cell size in pixels when the terminal doesn't report it
 HALF_BLOCK = "▀"
 RESET = "\x1b[0m"
-IMAGE_ID = 7031  # our image in the terminal; any number, as long as it's always the same
+IMAGE_IDS = (7031, 7032)  # our two images in the terminal, shown in turn; any numbers will do
+SYNC_START, SYNC_END = "\x1b[?2026h", "\x1b[?2026l"  # hold the redraw until the frame is complete
 KITTY_CHUNK = 4096  # the kitty protocol takes base64 data in chunks of at most this many bytes
 KITTY_QUERY = "\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"  # "could you show this 1-pixel image?"
 DEVICE_ATTRIBUTES = "\x1b[c"  # every terminal answers this, so it marks the end of the answers
@@ -209,22 +210,34 @@ def mirror_bgr(bgr, width, height):
     return b"".join(bgr[y * stride:(y + 1) * stride][::-1] for y in range(height))
 
 
-def kitty_image(rgb, width, height, cols, rows):
+def kitty_image(rgb, width, height, cols, rows, image_id, previous_id):
     """The kitty graphics escapes that show rgb (width x height pixels) over cols x rows cells.
 
-    The image always has the same id and placement id, so each frame replaces the
-    last one in place. The cursor stays put (C=1) and the terminal sends no
-    replies (q=2), which would otherwise turn up as keypresses.
+    Double-buffered so the preview never blinks: the frame is uploaded as image_id
+    while previous_id stays on screen, and only once it's all there is it placed
+    on top and the previous one taken away. Replacing a single image instead
+    deletes it first, and the terminal can redraw while the new one is still
+    arriving in chunks, showing nothing.
+
+    The cursor stays put (C=1) and the terminal sends no replies (q=2), which
+    would otherwise turn up as keypresses.
     """
     data = base64.standard_b64encode(zlib.compress(rgb, 1)).decode("ascii")
     chunks = [data[i:i + KITTY_CHUNK] for i in range(0, len(data), KITTY_CHUNK)] or [""]
-    first = f"a=T,f=24,o=z,s={width},v={height},c={cols},r={rows},i={IMAGE_ID},p=1,C=1,q=2"
+    first = f"a=t,f=24,o=z,s={width},v={height},i={image_id},q=2"
     escapes = []
     for n, chunk in enumerate(chunks):
         more = int(n < len(chunks) - 1)
         keys = f"{first},m={more}" if n == 0 else f"m={more},q=2"
         escapes.append(f"\x1b_G{keys};{chunk}\x1b\\")
+    escapes.append(f"\x1b_Ga=p,i={image_id},p=1,c={cols},r={rows},C=1,q=2\x1b\\")
+    escapes.append(kitty_hide(previous_id))
     return "".join(escapes)
+
+
+def kitty_hide(image_id):
+    """Take an image off the screen; the terminal keeps its data for the next upload to replace."""
+    return f"\x1b_Ga=d,d=i,i={image_id},q=2\x1b\\"
 
 
 def kitty_supported(answers):
@@ -276,6 +289,7 @@ class Preview:
         self._truecolor = os.environ.get("COLORTERM", "").lower() in ("truecolor", "24bit")
         self._images = self._ask_for_images()
         self._layout = None
+        self._frames_shown = 0
         self._write("\x1b[?1049h\x1b[?25l\x1b[2J")  # alternate screen, hide cursor, clear
         return self
 
@@ -283,7 +297,8 @@ class Preview:
         import termios
 
         if self._images:
-            self._write(f"\x1b_Ga=d,d=I,i={IMAGE_ID},q=2\x1b\\")  # forget our image
+            # take both images away and free them
+            self._write("".join(f"\x1b_Ga=d,d=I,i={image_id},q=2\x1b\\" for image_id in IMAGE_IDS))
         self._write(RESET + "\x1b[?25h\x1b[?1049l")  # show cursor, back to the normal screen
         termios.tcsetattr(self._fd, termios.TCSAFLUSH, self._saved)  # drops keys typed while scanning
         return False
@@ -335,13 +350,19 @@ class Preview:
     def _draw_image(self, frame, cols, rows, status):
         width, height, cells_wide, cells_high = image_layout(
             cols, rows - STATUS_ROWS, *_cell_size(sys.stdout.fileno()), frame.width, frame.height)
-        clear = "\x1b[2J" if (cols, rows, cells_wide, cells_high) != self._layout else ""
-        self._layout = (cols, rows, cells_wide, cells_high)
+        clear = ""
+        if (cols, rows, cells_wide, cells_high) != self._layout:  # first frame, or the window was resized
+            clear = "\x1b[2J" + "".join(kitty_hide(image_id) for image_id in IMAGE_IDS)
+            self._layout = (cols, rows, cells_wide, cells_high)
         small = frame.reformat(width=width, height=height, format="bgr24")
         rgb = mirror_bgr(plane_bytes(small, 3), width, height)  # mirrored like a mirror
         column = (cols - cells_wide) // 2 + 1
-        self._write(f"{clear}\x1b[H{status}\x1b[K\x1b[{STATUS_ROWS + 1};{column}H"
-                    + kitty_image(rgb, width, height, cells_wide, cells_high))
+        image_id = IMAGE_IDS[self._frames_shown % 2]
+        previous_id = IMAGE_IDS[(self._frames_shown + 1) % 2]
+        self._frames_shown += 1
+        self._write(f"{SYNC_START}{clear}\x1b[H{status}\x1b[K\x1b[{STATUS_ROWS + 1};{column}H"
+                    + kitty_image(rgb, width, height, cells_wide, cells_high, image_id, previous_id)
+                    + SYNC_END)
 
     def _draw_blocks(self, frame, cols, rows, status):
         # one column spare: a line that fills the width leaves the cursor on its last cell,
@@ -352,7 +373,7 @@ class Preview:
         lines = [status, ""]
         lines += [margin + line for line in render(plane_bytes(small, 3), width, height, self._truecolor)]
         # redraw in place: clear each line's leftovers and anything below, so there's no flicker
-        self._write("\x1b[H" + "\x1b[K\r\n".join(lines) + "\x1b[K\x1b[J")
+        self._write(SYNC_START + "\x1b[H" + "\x1b[K\r\n".join(lines) + "\x1b[K\x1b[J" + SYNC_END)
 
     @staticmethod
     def _write(text):
