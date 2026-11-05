@@ -521,7 +521,9 @@ def _show_qr_batch(accounts, skipped, batch_index, batch_size):
     title = msg.QR_BOX_TITLE.format(index=batch_index + 1, total=batch_size, accounts=found)
     lines = [label(acc) for acc in accounts]
     lines += [f"{ui.paint('!', ui.YELLOW, ui.BOLD)} {msg.SKIPPED_HOTP.format(name=name)}" for name in skipped]
+    ui.out()
     ui.box(lines, title=ui.paint(title, ui.BOLD))
+    ui.out()
 
 
 def cmd_import(args, ctx):
