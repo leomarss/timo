@@ -6,7 +6,7 @@ import signal
 import sys
 import time
 
-from utils.utils import read_hidden
+from totp_cli.utils import read_hidden
 
 SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 LONG_SECRET = "otpauth-migration://offline?data=" + "A" * 3000
@@ -15,7 +15,7 @@ LONG_SECRET = "otpauth-migration://offline?data=" + "A" * 3000
 CHILD = """
 import os, sys
 sys.path.insert(0, sys.argv[1])
-from utils.utils import read_hidden
+from totp_cli.utils import read_hidden
 value = read_hidden("Paste: ")
 with open(sys.argv[2], "w") as f:
     f.write(value)

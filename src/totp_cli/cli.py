@@ -7,11 +7,10 @@ import argparse
 import os
 import sys
 
-from utils import commands
-from utils.commands import Abort, Context
+from totp_cli import __version__, commands
+from totp_cli.commands import Abort, Context
 
-SRC_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REPO_DIR = os.path.dirname(SRC_DIR)
+PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 DESCRIPTION = "TOTP CLI - Terminal One-Time Password"
 EPILOG = """\
@@ -52,14 +51,27 @@ def config_dir():
     return os.path.join(base, "totp-cli")
 
 
+def legacy_candidates():
+    """Where the old sudo version kept its plaintext secrets."""
+    checkout = os.path.dirname(os.path.dirname(PACKAGE_DIR))  # repo root when run from a source checkout
+    return [
+        os.path.join(checkout, "json", "secrets.json"),
+        os.path.join(os.path.expanduser("~"), "totp-cli", "json", "secrets.json"),
+    ]
+
+
+def find_legacy_json():
+    return next((p for p in legacy_candidates() if os.path.exists(p)), None)
+
+
 def make_context():
     home = config_dir()
     return Context(
         secrets_path=os.path.join(home, "secrets.enc"),
         backup_dir=os.path.join(home, "backups"),
-        legacy_json=os.path.join(REPO_DIR, "json", "secrets.json"),
+        legacy_json=find_legacy_json(),
         python_path=sys.executable,
-        preview_script=os.path.join(SRC_DIR, "utils", "preview.py"),
+        preview_script=os.path.join(PACKAGE_DIR, "preview.py"),
     )
 
 
@@ -81,6 +93,7 @@ def build_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         allow_abbrev=False,  # flags must be spelled out: --lis is not --list
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     parser.add_argument("query", nargs="*", metavar="WORDS",
                         help="copy the code of the account matching all words (fzf picker if several match)")
 
@@ -99,7 +112,9 @@ def build_parser():
     acts.add_argument("--passwd", action="store_true", help="change the passphrase")
     acts.add_argument("--forget", action="store_true", help="remove the passphrase from your keychain and stop saving it")
     acts.add_argument("--remember", action="store_true", help="save the passphrase in your keychain again")
-    acts.add_argument("--migrate", action="store_true", help="move secrets from the old sudo version (json/secrets.json)")
+    acts.add_argument("--migrate", nargs="?", const="", metavar="PATH",
+                      help="move secrets from the old sudo version (default: json/secrets.json in "
+                           "this checkout or ~/totp-cli)")
     acts.add_argument("--yes", action="store_true", help="with --migrate: delete the old plaintext files without asking")
 
     backups = parser.add_argument_group("backups")
@@ -157,6 +172,7 @@ def parse(argv):
     args.names = args.remove or []
     args.all = args.remove_all
     args.name = args.restore
+    args.migrate_path = args.migrate or None
     return args
 
 

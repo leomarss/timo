@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from utils import clipboard, commands
+from totp_cli import clipboard, commands
 
 SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
@@ -133,7 +133,7 @@ def test_background_clear_end_to_end(tmp_path):
         "def copy(t): open(P, 'w').write(t)\n"
         "def paste(): return open(P).read() if os.path.exists(P) else ''\n"
     )
-    from utils.vault import Vault
+    from totp_cli.vault import Vault
     Vault(str(tmp_path / "cfg" / "secrets.enc"), "e2e passphrase").save(ACC)
     env = dict(os.environ, PYTHONPATH=str(fake), FAKE_BOARD=str(board),
                TOTP_CLI_HOME=str(tmp_path / "cfg"), TOTP_CLI_PASSPHRASE="e2e passphrase")

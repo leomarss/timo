@@ -1,7 +1,7 @@
 import pytest
 
 from conftest import PASSPHRASE
-from utils import commands, keystore
+from totp_cli import commands, keystore
 
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
 

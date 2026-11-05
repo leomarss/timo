@@ -19,19 +19,19 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 ## 📦 Requirements
 
 - Python 3.9+
+- [`pipx`](https://pipx.pypa.io/) (`brew install pipx` or `sudo apt install pipx`)
 - `fzf` installed and available in `$PATH`
-- Python packages listed in `src/requirements.txt`
-- A virtual environment (recommended)
+- `zbarimg` to import from QR code images (optional)
 
 ## 🔧 Setup
 
 ```bash
-# Clone your repo
-cd ~/totp-cli
-python3 -m venv env
-source env/bin/activate
-pip install -r src/requirements.txt
+pipx install git+https://github.com/leomarss/totp-cli.git
+# or, from a local clone:
+pipx install ~/totp-cli
 ```
+
+This puts an `otpcli` command on your `PATH`, in its own isolated environment. To update later: `pipx upgrade totp-cli` (or `pipx install --force ~/totp-cli` for a local clone).
 
 Make sure `fzf` is installed:
 ```bash
@@ -53,12 +53,6 @@ If `fzf` is installed but not found by the script, you can set its path manually
 export FZF_PATH=$(dirname $(which fzf))
 ```
 
-Create an alias in your shell (bash/zsh):
-
-```bash
-alias otpcli='~/totp-cli/env/bin/python ~/totp-cli/src/app.py'
-```
-
 Then add your accounts:
 
 ```bash
@@ -73,12 +67,12 @@ After the first unlock, otpcli saves the passphrase in your OS keychain and stop
 
 Earlier versions ran with `sudo` and kept unencrypted secrets in `json/secrets.json`. To move them:
 
-1. Remove `sudo` from your alias (see above). otpcli now refuses to run as root.
+1. Remove your old `otpcli` alias (it used `sudo`) and install with pipx (see [Setup](#-setup)). otpcli now refuses to run as root.
 2. Run, as your normal user:
    ```bash
    otpcli --migrate
    ```
-   It reads the old root-owned file with `sudo cat` (the only step that needs sudo), asks you for a new passphrase, saves the encrypted secrets to `~/.config/totp-cli/`, and offers to delete the old plaintext `json/secrets.json` and `json/backups/`.
+   It looks for the old file in `~/totp-cli/json/secrets.json`; if your clone is elsewhere, pass the path: `otpcli --migrate /path/to/totp-cli/json/secrets.json`. It reads the old root-owned file with `sudo cat` (the only step that needs sudo), asks you for a new passphrase, saves the encrypted secrets to `~/.config/totp-cli/`, and offers to delete the old plaintext `json/secrets.json` and `json/backups/`.
 
 ## 🧪 Usage
 
@@ -99,7 +93,7 @@ otpcli -- <words...>              Search for words that start with "-"
 --passwd                          Change the passphrase
 --forget                          Remove the passphrase from the keychain and stop saving it
 --remember                        Save it in the keychain again on the next unlock
---migrate [--yes]                 Move secrets from the old sudo version
+--migrate [PATH] [--yes]          Move secrets from the old sudo version
 
 --backup                          Create a backup
 --list-backups                    Show available backups
@@ -107,6 +101,7 @@ otpcli -- <words...>              Search for words that start with "-"
 --backup --remove-all             Delete all backups (asks first)
 --restore <NAME>                  Restore a backup (current secrets are backed up first)
 
+--version                         Show the installed version
 --help, -h                        Help
 ```
 
@@ -215,23 +210,28 @@ otpcli --list-backups
 otpcli --restore secrets.enc.bak.2025-04-18_23-30-00
 ```
 
-## 🧪 Tests
+## 🛠️ Development
 
 ```bash
-env/bin/python -m pytest tests
+cd ~/totp-cli
+python3 -m venv env
+env/bin/pip install --upgrade pip   # editable installs need pip 21.3+
+env/bin/pip install -e '.[dev]'
+env/bin/python -m pytest
 ```
+
+`env/bin/otpcli` then runs your working copy. `python src/app.py` works too.
 
 ## 📁 File Structure
 
 ```
 totp-cli/
-├── env/                         # Python virtual environment
+├── pyproject.toml               # Package metadata and dependencies
 ├── src/
-│   ├── app.py                   # Main CLI entrypoint
+│   ├── app.py                   # Run from a checkout without installing
 │   ├── monitor.py               # Same as "otpcli --watch"
-│   ├── requirements.txt
-│   └── utils/
-│       ├── cli.py               # Argument parsing
+│   └── totp_cli/
+│       ├── cli.py               # Argument parsing, "otpcli" entry point
 │       ├── commands.py          # Command handlers
 │       ├── vault.py             # Encrypted storage
 │       ├── keystore.py          # OS keychain for the passphrase
@@ -239,8 +239,8 @@ totp-cli/
 │       ├── clipboard.py         # Copy and delayed clear
 │       ├── utils.py             # OTP generation, backups, helpers
 │       ├── preview.py           # Preview shown in fzf
-│       └── protobuf/            # Google Authenticator QR importer
-│           ├── extract_google_otp_from_qr.py
+│       └── protobuf/            # Google Authenticator export decoding
+│           ├── migration.py
 │           ├── migration_pb2.py
 │           └── migration.proto
 ├── tests/

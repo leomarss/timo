@@ -13,7 +13,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
-from utils import fileio
+from totp_cli import fileio
 
 FORMAT_VERSION = 1
 SCRYPT_N = 2**17  # about 0.2s per unlock on a modern laptop

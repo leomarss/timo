@@ -2,7 +2,7 @@ import base64
 
 import pytest
 
-from utils.utils import generate_otp, make_totp
+from totp_cli.utils import generate_otp, make_totp
 
 # RFC 6238 Appendix B test vectors (T = 59s), seeds per algorithm
 SEEDS = {

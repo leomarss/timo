@@ -3,8 +3,8 @@ import os
 
 import pytest
 
-from utils import vault
-from utils.vault import Vault, WrongPassphrase, VaultFormatError, decrypt, encrypt
+from totp_cli import vault
+from totp_cli.vault import Vault, WrongPassphrase, VaultFormatError, decrypt, encrypt
 
 
 @pytest.fixture(autouse=True)

@@ -1,12 +1,7 @@
 import base64
-import os
-import sys
 from urllib.parse import unquote, urlsplit
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, script_dir)
-
-import migration_pb2  # import after sys.path.insert otherwise it will not find the module
+from totp_cli.protobuf import migration_pb2
 
 
 ALGORITHMS = {

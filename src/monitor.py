@@ -1,7 +1,9 @@
 # Kept for existing shortcuts; same as "otpcli --watch".
 import sys
 
-from utils.cli import main
+from totp_cli.cli import main
+
+ARGV = ["--watch"]
 
 if __name__ == "__main__":
-    sys.exit(main(["watch"]))
+    sys.exit(main(ARGV))

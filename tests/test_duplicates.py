@@ -9,9 +9,9 @@ import sys
 import pyotp
 import pytest
 
-from utils import preview
-from utils.utils import fzf_args, preview_codes
-from utils.vault import Vault
+from totp_cli import preview
+from totp_cli.utils import fzf_args, preview_codes
+from totp_cli.vault import Vault
 
 SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 PASSPHRASE = "e2e passphrase"

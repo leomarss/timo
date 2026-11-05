@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from utils import commands
-from utils.utils import list_backups
+from totp_cli import commands
+from totp_cli.utils import list_backups
 
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
 TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
@@ -38,12 +38,12 @@ TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
     (["--restore", "x"], "restore"),
 ])
 def test_flags_pick_the_action(argv, action):
-    from utils.cli import parse
+    from totp_cli.cli import parse
     assert parse(argv).action == action
 
 
 def test_query_words_are_kept():
-    from utils.cli import parse
+    from totp_cli.cli import parse
     args = parse(["--", "-weird", "edit"])
     assert args.query == ["-weird", "edit"]
 
@@ -58,7 +58,7 @@ def test_query_words_are_kept():
     ["--clear-after", "-1"], ["--clear-after", "soon"],
 ])
 def test_bad_combinations_are_rejected(argv):
-    from utils.cli import parse
+    from totp_cli.cli import parse
     with pytest.raises(SystemExit) as exc:
         parse(argv)
     assert exc.value.code == 2
@@ -236,7 +236,7 @@ def test_migrate_can_keep_old_files(cli):
 
 def test_migrate_without_old_file(cli):
     code, out, _ = cli.run("--migrate")
-    assert code == 1 and "Nothing to migrate" in out
+    assert code == 1 and "No old secrets file found" in out
 
 
 @pytest.mark.parametrize("argv", [["--no-copy", "git"], ["git", "--no-copy"]])
@@ -252,6 +252,52 @@ def test_get_options_before_or_after_words(cli, argv):
     ["github", "me", "--clear-after", "5"],
 ])
 def test_words_and_options_in_any_order(argv):
-    from utils.cli import parse
+    from totp_cli.cli import parse
     args = parse(argv)
     assert args.action == "get" and args.query == ["github", "me"]
+
+
+def test_migrate_from_explicit_path(cli, tmp_path):
+    old = tmp_path / "elsewhere" / "secrets.json"
+    old.parent.mkdir()
+    old.write_text(json.dumps(TWO))
+    code, out, _ = cli.run("--migrate", str(old), answers=["n"])
+    assert code == 0
+    assert cli.load() == TWO
+
+
+def test_migrate_reports_where_it_looked(cli):
+    code, out, _ = cli.run("--migrate")
+    assert code == 1
+    assert str(cli.legacy_json) in out
+    assert "otpcli --migrate PATH" in out
+
+
+def test_legacy_lookup_prefers_existing_candidate(tmp_path, monkeypatch):
+    from totp_cli import cli as cli_module
+    first, second = tmp_path / "a" / "secrets.json", tmp_path / "b" / "secrets.json"
+    second.parent.mkdir()
+    second.write_text("[]")
+    monkeypatch.setattr(cli_module, "legacy_candidates", lambda: [str(first), str(second)])
+    assert cli_module.make_context().legacy_json == str(second)
+    second.unlink()
+    assert cli_module.make_context().legacy_json is None
+
+
+def test_monitor_script_starts_watch_mode():
+    import importlib.util
+    import os
+    from totp_cli.cli import parse
+    path = os.path.join(os.path.dirname(__file__), "..", "src", "monitor.py")
+    spec = importlib.util.spec_from_file_location("monitor", path)
+    monitor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(monitor)
+    assert parse(monitor.ARGV).action == "watch"
+
+
+def test_version(cli, capsys):
+    from totp_cli import __version__
+    with pytest.raises(SystemExit) as exc:
+        cli.run("--version")
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.strip() == f"otpcli {__version__}"

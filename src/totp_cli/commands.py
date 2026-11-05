@@ -9,7 +9,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 
-from utils.utils import (
+from totp_cli.utils import (
     create_backup,
     fzf_args,
     generate_otp,
@@ -22,8 +22,8 @@ from utils.utils import (
     scan_qr_image,
     validate_accounts,
 )
-from utils import clipboard, fileio, keystore
-from utils.vault import Vault, VaultFormatError, WrongPassphrase
+from totp_cli import clipboard, fileio, keystore
+from totp_cli.vault import Vault, VaultFormatError, WrongPassphrase
 
 PASSPHRASE_ENV = "TOTP_CLI_PASSPHRASE"
 PREVIEW_ENV = "TOTP_CLI_PREVIEW"
@@ -34,7 +34,7 @@ MIN_PASSPHRASE = 8
 class Context:
     secrets_path: str
     backup_dir: str
-    legacy_json: str
+    legacy_json: str  # old sudo version's plaintext file, or None
     python_path: str
     preview_script: str
     _vault: Vault = field(default=None, repr=False)
@@ -96,7 +96,7 @@ def open_vault(ctx):
         return ctx._vault, ctx._vault.load()
     if not os.path.exists(ctx.secrets_path):
         msg = f"No secrets found at {ctx.secrets_path}.\nAdd accounts with:  otpcli --initialize"
-        if os.path.exists(ctx.legacy_json):
+        if ctx.legacy_json:
             msg += "\nOr move your secrets from the old sudo version with:  otpcli --migrate"
         raise Abort(msg)
 
@@ -495,7 +495,7 @@ def import_into_vault(ctx, new_accounts):
 
 
 def cmd_import(args, ctx):
-    from utils.protobuf.extract_google_otp_from_qr import parse_migration_uri
+    from totp_cli.protobuf.migration import parse_migration_uri
 
     choice = input("Do you already have the OTP migration string? [y/N] ").strip().lower()
     use_qr = choice != "y"
@@ -565,9 +565,14 @@ def _remove_legacy(paths):
 
 
 def cmd_migrate(args, ctx):
-    path = ctx.legacy_json
-    if not os.path.exists(path):
-        print(f"No old secrets file found at {path}. Nothing to migrate.")
+    path = args.migrate_path or ctx.legacy_json
+    if not path or not os.path.exists(path):
+        from totp_cli.cli import legacy_candidates
+        looked = [path] if args.migrate_path else legacy_candidates()
+        print("No old secrets file found. Looked in:")
+        for p in looked:
+            print(f"  {p}")
+        print("If it's somewhere else, run:  otpcli --migrate PATH")
         return 1
     try:
         accounts = json.loads(_read_legacy(path))

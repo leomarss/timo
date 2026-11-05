@@ -5,7 +5,6 @@ import pytest
 
 SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 sys.path.insert(0, os.path.abspath(SRC))
-sys.path.insert(0, os.path.abspath(os.path.join(SRC, "utils", "protobuf")))
 
 PASSPHRASE = "test passphrase"
 
@@ -17,17 +16,18 @@ def cli(tmp_path, monkeypatch, capsys):
     Returns an object with run(*argv, answers=[...]) -> (exit_code, stdout, stderr),
     plus the paths it uses. Prompts answered by input() come from `answers`.
     """
-    from utils import cli as cli_module
-    from utils import vault
+    from totp_cli import cli as cli_module
+    from totp_cli import vault
 
-    from utils import keystore
+    from totp_cli import keystore
 
     monkeypatch.setattr(vault, "SCRYPT_N", 2**10)  # fast tests
     monkeypatch.setattr(keystore, "_backend", lambda: None)  # never touch the real keychain
     home = tmp_path / "config"
     monkeypatch.setenv("TOTP_CLI_HOME", str(home))
     monkeypatch.setenv("TOTP_CLI_PASSPHRASE", PASSPHRASE)
-    monkeypatch.setattr(cli_module, "REPO_DIR", str(tmp_path / "repo"))
+    legacy = str(tmp_path / "repo" / "json" / "secrets.json")
+    monkeypatch.setattr(cli_module, "legacy_candidates", lambda: [legacy])
     monkeypatch.setattr(os, "geteuid", lambda: 1000)
 
     class Runner:

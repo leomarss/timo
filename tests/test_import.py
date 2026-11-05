@@ -6,9 +6,9 @@ from urllib.parse import quote
 
 import pytest
 
-import migration_pb2
-from utils.protobuf.extract_google_otp_from_qr import parse_migration_uri
-from utils.utils import list_backups
+from totp_cli.protobuf import migration_pb2
+from totp_cli.protobuf.migration import parse_migration_uri
+from totp_cli.utils import list_backups
 
 
 def make_uri(params, batch_index=0, batch_size=1):

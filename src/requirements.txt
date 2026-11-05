@@ -1,6 +1,0 @@
-pyotp==2.9.0
-protobuf==6.30.2
-cryptography==50.0.2
-keyring==25.7.0
-pyperclip==1.9.0
-pytest==8.4.2

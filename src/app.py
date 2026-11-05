@@ -1,6 +1,6 @@
 import sys
 
-from utils.cli import main
+from totp_cli.cli import main
 
 if __name__ == "__main__":
     sys.exit(main())

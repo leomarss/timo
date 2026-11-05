@@ -8,7 +8,7 @@ import sys
 from datetime import datetime
 from collections import Counter
 
-from utils import fileio
+from totp_cli import fileio
 
 
 DIGESTS = {
