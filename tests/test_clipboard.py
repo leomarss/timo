@@ -75,9 +75,9 @@ def test_get_schedules_clear_with_code_on_stdin_not_argv(cli, spawned):
     cli.store(ACC)
     code, out, _ = cli.run("git")
     assert code == 0
-    assert "copied to clipboard, clears in 45s" in out
+    assert "· copied, clears in 45s" in out
     [proc] = spawned
-    otp = out.split("OTP code for GitHub (me): ")[1].split()[0]
+    otp = out.splitlines()[1].split()[0]
     assert proc.written == otp.encode()
     assert otp not in " ".join(proc.argv)
     assert proc.argv[-1] == "45"
@@ -103,7 +103,7 @@ def test_zero_disables_clearing(cli, spawned, monkeypatch, argv, env):
         monkeypatch.setenv("TOTP_CLI_CLEAR_AFTER", env)
     cli.store(ACC)
     code, out, _ = cli.run(*argv)
-    assert code == 0 and "(copied to clipboard)" in out
+    assert code == 0 and out.rstrip().endswith("· copied")
     assert spawned == []
 
 
@@ -116,8 +116,8 @@ def test_no_copy_schedules_nothing(cli, spawned):
 def test_bad_clear_after_env_is_rejected(cli, spawned, monkeypatch):
     monkeypatch.setenv("TOTP_CLI_CLEAR_AFTER", "soon")
     cli.store(ACC)
-    code, out, _ = cli.run("git")
-    assert code == 1 and "TOTP_CLI_CLEAR_AFTER" in out
+    code, _, err = cli.run("git")
+    assert code == 1 and "TOTP_CLI_CLEAR_AFTER" in err
 
 
 # --- end to end with a real background process ----------------------------------------
@@ -143,7 +143,7 @@ def test_background_clear_end_to_end(tmp_path):
                             capture_output=True, text=True, env=env, timeout=20)
     assert result.returncode == 0, result.stdout + result.stderr
     assert time.time() - start < 2, "otpcli must not wait for the clear"
-    otp = result.stdout.split("OTP code for GitHub (me): ")[1].split()[0]
+    otp = result.stdout.splitlines()[1].split()[0]
     assert board.read_text() == otp
 
     deadline = time.time() + 10

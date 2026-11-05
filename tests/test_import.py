@@ -61,7 +61,7 @@ B = ("AWS", "me", b"abcdefghij")
 def test_import_creates_encrypted_store(cli, monkeypatch):
     code, out, _ = run_import(cli, monkeypatch, make_uri([A]))
     assert code == 0
-    assert "Imported 1 new account(s)." in out
+    assert "✓ Imported 1 new account\n" in out
     assert cli.load() == [{"issuer": "GitHub", "name": "me", "secret": b32(A[2]),
                            "algorithm": "SHA1", "digits": 6}]
     assert b"GitHub" not in cli.secrets.read_bytes()
@@ -73,7 +73,7 @@ def test_import_merges_and_backs_up(cli, monkeypatch):
     code, out, _ = run_import(cli, monkeypatch, make_uri([A, B]))
 
     assert code == 0
-    assert "Imported 1 new account(s), skipped 1 already present." in out
+    assert "✓ Imported 1 new account, skipped 1 already present" in out
     assert [a["issuer"] for a in cli.load()] == ["GitHub", "AWS"]
     assert len(list_backups(str(cli.backups))) == 1
 

@@ -107,24 +107,38 @@ Every option starts with `-` or `--`, and plain words are always a search, so an
 
 ```
 $ otpcli github
-
-OTP code for GitHub (you@example.com): 123456
-Valid for another 17 seconds (copied to clipboard, clears in 45s)
+╭─ GitHub (you@example.com) ────────────────────╮
+│  482 913   17s left · copied, clears in 45s   │
+╰───────────────────────────────────────────────╯
 ```
+
+The code is shown as `482 913` to make it easier to read; the clipboard gets `482913`.
 
 ```
 $ otpcli --stats
+ Issuer     Accounts
+ ─────────  ────────
+ GitHub            2
+ Google            2
+ AWS               1
+ Bitwarden         1
+ ─────────  ────────
+ Total             6   (4 issuers)
 
-TOTP CLI - Account Stats
+$ otpcli --list-backups
+ Backup                               Age
+ ───────────────────────────────────  ───────
+ secrets.enc.bak.2026-10-12_18-30-00  3 weeks
+ secrets.enc.bak.2026-11-01_09-02-41  4 days
 
-Total accounts: 6
-Unique issuers: 4
+$ otpcli --backup
+✓ Backup saved  ~/.config/totp-cli/backups/secrets.enc.bak.2026-11-05_11-20-03
 
-  GitHub              -> 2
-  Google              -> 2
-  AWS                 -> 1
-  Bitwarden           -> 1
+$ otpcli gihub
+✗ No account matches "gihub"
 ```
+
+In a terminal the code is coloured by the time it has left (green, then yellow, then red). Errors (`✗`) and warnings (`!`) go to stderr. When the output isn't a terminal (a pipe or a script), boxes and tables are left out: you get the bare code (`482913`) and one name per line from `--list` and `--list-backups`. Colour turns off there too, and whenever [`NO_COLOR`](https://no-color.org) is set.
 
 ## 🔐 Storage
 
@@ -225,6 +239,8 @@ totp-cli/
 │       ├── keystore.py          # OS keychain for the passphrase
 │       ├── fileio.py            # Crash-safe private file writes
 │       ├── clipboard.py         # Copy and delayed clear
+│       ├── messages.py          # The text of every message
+│       ├── ui.py                # How output is shown (boxes, tables, colour, stdout/stderr)
 │       ├── utils.py             # OTP generation, backups, helpers
 │       ├── preview.py           # Preview shown in fzf
 │       └── protobuf/            # Google Authenticator export decoding

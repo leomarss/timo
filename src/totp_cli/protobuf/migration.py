@@ -26,7 +26,7 @@ def parse_migration_uri(uri):
     """
     parts = urlsplit(uri.strip())
     if parts.scheme != "otpauth-migration":
-        raise ValueError("Not an otpauth-migration:// URI.")
+        raise ValueError("Not an otpauth-migration:// URI")
 
     data_b64 = None
     for param in parts.query.split("&"):
@@ -35,7 +35,7 @@ def parse_migration_uri(uri):
             data_b64 = unquote(param[len("data="):])
             break
     if not data_b64:
-        raise ValueError("Migration URI has no data parameter.")
+        raise ValueError("Migration URI has no data parameter")
 
     data_b64 += "=" * (-len(data_b64) % 4)
     try:

@@ -67,7 +67,7 @@ def test_bad_combinations_are_rejected(argv):
 def test_account_named_like_a_flag_name(cli):
     cli.store([{"issuer": "edit", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}])
     code, out, _ = cli.run("edit", "--no-copy")
-    assert code == 0 and "OTP code for edit (me):" in out
+    assert code == 0 and out.startswith("edit (me)\n")
 
 
 def test_help(cli, capsys):
@@ -83,39 +83,48 @@ def test_help(cli, capsys):
 
 def test_refuses_to_run_as_root(cli, monkeypatch):
     monkeypatch.setattr(os, "geteuid", lambda: 0)
-    code, out, _ = cli.run("--list")
+    code, out, err = cli.run("--list")
     assert code == 1
-    assert "doesn't run as root" in out
+    assert out == "" and "doesn't run as root" in err
 
 
 def test_missing_store_suggests_initialize(cli):
-    code, out, _ = cli.run("--list")
+    code, out, err = cli.run("--list")
     assert code == 1
-    assert "otpcli --initialize" in out
+    assert out == "" and "otpcli --initialize" in err
 
 
 def test_wrong_passphrase(cli, monkeypatch):
     cli.store(ACC, passphrase="something else")
-    code, out, _ = cli.run("--list")
+    code, out, err = cli.run("--list")
     assert code == 1
-    assert "Wrong passphrase" in out
+    assert "✗ Wrong passphrase" in err
 
 
 def test_get_single_match_prints_code(cli):
     cli.store(TWO)
     code, out, _ = cli.run("git", "--no-copy")
     assert code == 0
-    assert "OTP code for GitHub (me):" in out
-    assert "not copied" in out
+    label, line = out.splitlines()
+    assert label == "GitHub (me)"
+    assert line.split()[0].isdigit() and len(line.split()[0]) == 6
+    assert "not copied" in line
 
 
 def test_get_no_match(cli):
     cli.store(TWO)
-    code, out, _ = cli.run("nothing-matches")
-    assert code == 1 and "No matching accounts found." in out
+    code, out, err = cli.run("nothing-matches")
+    assert code == 1 and out == ""
+    assert err == '✗ No account matches "nothing-matches"\n'
 
 
-@pytest.mark.parametrize("accounts, expected", [([], "Total accounts: 0"), (TWO, "Total accounts: 2")])
+def test_get_with_no_accounts_suggests_initialize(cli):
+    cli.store([])
+    code, _, err = cli.run()
+    assert code == 1 and "No accounts yet" in err and "otpcli --initialize" in err
+
+
+@pytest.mark.parametrize("accounts, expected", [([], "Total          0   (0 issuers)"), (TWO, "Total          2   (2 issuers)")])
 def test_stats(cli, accounts, expected):
     cli.store(accounts)
     code, out, _ = cli.run("--stats")
@@ -143,7 +152,7 @@ def test_edit_saves_valid_changes(cli, editor, monkeypatch):
     cli.store(ACC)
     monkeypatch.setenv("EDIT_CONTENT", json.dumps(TWO))
     code, out, _ = cli.run("--edit", "--editor", editor)
-    assert code == 0 and "Saved 2 account(s)." in out
+    assert code == 0 and "✓ Saved 2 accounts" in out
     assert cli.load() == TWO
     assert list_backups(str(cli.backups)) == []
 
@@ -172,8 +181,8 @@ def test_edit_with_backup(cli, editor, monkeypatch, argv):
 
 def test_edit_without_changes(cli, editor):
     cli.store(ACC)
-    code, out, _ = cli.run("--edit", "--editor", editor)
-    assert code == 0 and "No changes." in out
+    code, _, err = cli.run("--edit", "--editor", editor)
+    assert code == 0 and "No changes" in err
 
 
 @pytest.mark.parametrize("content", ["not json", '{"a": 1}', '[{"issuer": "x"}]',
@@ -181,9 +190,9 @@ def test_edit_without_changes(cli, editor):
 def test_edit_rejects_invalid_content(cli, editor, monkeypatch, content):
     cli.store(ACC)
     monkeypatch.setenv("EDIT_CONTENT", content)
-    code, out, _ = cli.run("--edit", "--editor", editor, answers=["n"])
+    code, _, err = cli.run("--edit", "--editor", editor, answers=["n"])
     assert code == 1
-    assert "Invalid secrets" in out and "Changes discarded." in out
+    assert "✗ Invalid accounts" in err and "! Changes discarded" in err
     assert cli.load() == ACC
 
 
@@ -193,7 +202,7 @@ def test_passwd(cli, monkeypatch):
     cli.store(ACC)
     monkeypatch.setattr(commands, "ask_new_passphrase", lambda: "brand new passphrase")
     code, out, _ = cli.run("--passwd")
-    assert code == 0 and "Passphrase changed." in out
+    assert code == 0 and "✓ Passphrase changed" in out
     assert cli.load("brand new passphrase") == ACC
     assert len(list_backups(str(cli.backups))) == 1
 
@@ -202,7 +211,7 @@ def test_passwd(cli, monkeypatch):
 def test_get_options_before_or_after_words(cli, argv):
     cli.store(ACC)
     code, out, _ = cli.run(*argv)
-    assert code == 0 and "OTP code for GitHub (me):" in out
+    assert code == 0 and out.startswith("GitHub (me)\n")
 
 
 @pytest.mark.parametrize("argv", [

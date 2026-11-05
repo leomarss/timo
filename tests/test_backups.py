@@ -53,14 +53,14 @@ def test_backups_in_the_same_second_do_not_overwrite_each_other(tmp_path):
 def test_backup_create_and_list(cli):
     cli.store(ACC)
     code, out, _ = cli.run("--backup")
-    assert code == 0 and "Backup saved to:" in out
+    assert code == 0 and "✓ Backup saved  " in out
     code, out, _ = cli.run("--list-backups")
     assert code == 0 and "secrets.enc.bak." in out
 
 
 def test_backup_list_without_backup_dir(cli):
-    code, out, _ = cli.run("--list-backups")
-    assert code == 0 and "No backups found" in out
+    code, out, err = cli.run("--list-backups")
+    assert code == 0 and out == "" and "No backups yet" in err
 
 
 def test_restore_backs_up_current_first(cli):
@@ -72,7 +72,7 @@ def test_restore_backs_up_current_first(cli):
     code, out, _ = cli.run("--restore", name)
 
     assert code == 0
-    assert "Previous secrets saved to:" in out
+    assert "✓ Previous secrets backed up" in out
     assert cli.load() == ACC
     assert len(list_backups(str(cli.backups))) == 2
 
@@ -113,14 +113,14 @@ def test_restore_rejects_bad_or_missing_names(cli, name):
 def test_remove_rejects_traversal(cli, tmp_path):
     victim = tmp_path / "victim.txt"
     victim.write_text("keep")
-    code, out, _ = cli.run("--backup", "--remove", "../../victim.txt")
-    assert "Skipped: Invalid backup name" in out
+    code, out, err = cli.run("--backup", "--remove", "../../victim.txt")
+    assert "! Skipped Invalid backup name" in err
     assert victim.read_text() == "keep"
 
 
 def test_remove_all_without_backup_dir(cli):
-    code, out, _ = cli.run("--backup", "--remove-all")
-    assert code == 0 and "No backups to remove." in out
+    code, out, err = cli.run("--backup", "--remove-all")
+    assert code == 0 and "No backups to remove" in err
 
 
 def test_remove_all_deletes_only_backups(cli):

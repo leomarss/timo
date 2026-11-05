@@ -36,7 +36,9 @@ def main(argv, environ, now):
         return "Codes expired: close and reopen otpcli."
     seconds_left = data["start"] + (window + 1) * data["interval"] - int(now)
     color = get_color(seconds_left)
-    return (f"{BOLD}Code:{RESET} {color}{codes[window]}{RESET} - "
+    code = codes[window]
+    shown = f"{code[:len(code) // 2]} {code[len(code) // 2:]}"  # 482 913, like the main output
+    return (f"{BOLD}Code:{RESET} {color}{shown}{RESET} - "
             f"{BOLD}Expires in:{RESET} {color}{seconds_left} seconds{RESET}")
 
 

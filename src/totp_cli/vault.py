@@ -57,10 +57,10 @@ def decrypt(blob, passphrase):
     try:
         envelope = json.loads(blob)
         if not isinstance(envelope, dict) or envelope.get("version") != FORMAT_VERSION:
-            raise VaultFormatError("Unsupported secrets file version.")
+            raise VaultFormatError("Unsupported secrets file version")
         kdf = envelope["kdf"]
         if kdf.get("name") != "scrypt":
-            raise VaultFormatError("Unsupported key derivation.")
+            raise VaultFormatError("Unsupported key derivation")
         salt = base64.b64decode(envelope["salt"])
         nonce = base64.b64decode(envelope["nonce"])
         ciphertext = base64.b64decode(envelope["ciphertext"])
@@ -74,7 +74,7 @@ def decrypt(blob, passphrase):
     try:
         plaintext = AESGCM(key).decrypt(nonce, ciphertext, AAD)
     except InvalidTag:
-        raise WrongPassphrase("Wrong passphrase (or the file was modified).") from None
+        raise WrongPassphrase("Wrong passphrase (or the file was modified)") from None
     return json.loads(plaintext)
 
 

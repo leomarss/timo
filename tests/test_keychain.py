@@ -55,9 +55,9 @@ def test_asks_once_then_uses_keychain(cli, typed, keychain):
     cli.store(ACC)
 
     replies.append(PASSPHRASE)
-    code, out, _ = cli.run("--list")
+    code, out, err = cli.run("--list")
     assert code == 0 and len(prompts) == 1
-    assert "saved in your keychain" in out
+    assert "saved in your keychain" in err and "keychain" not in out
 
     code, out, _ = cli.run("--list")
     assert code == 0 and len(prompts) == 1  # not asked again
@@ -70,9 +70,9 @@ def test_stale_keychain_passphrase_is_replaced(cli, typed, keychain):
     keychain.set_password(keystore.SERVICE, keystore.account_for(str(cli.secrets)), "old and wrong")
 
     replies.append(PASSPHRASE)
-    code, out, _ = cli.run("--list")
+    code, out, err = cli.run("--list")
     assert code == 0
-    assert "no longer works" in out
+    assert "! The passphrase saved in your keychain no longer works" in err
     assert len(prompts) == 1
     assert keystore.get(str(cli.secrets)) == PASSPHRASE
 

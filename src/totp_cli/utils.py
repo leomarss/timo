@@ -8,7 +8,8 @@ import sys
 from datetime import datetime
 from collections import Counter
 
-from totp_cli import fileio
+from totp_cli import fileio, ui
+from totp_cli import messages as msg
 
 
 DIGESTS = {
@@ -46,13 +47,13 @@ PREVIEW_WINDOWS = 20  # codes handed to the fzf preview: 20 x 30s = 10 minutes
 def validate_accounts(accounts):
     """Raise ValueError unless accounts is a list of usable account dicts."""
     if not isinstance(accounts, list):
-        raise ValueError("Expected a JSON list of accounts.")
+        raise ValueError("Expected a JSON list of accounts")
     for i, acc in enumerate(accounts, 1):
         if not isinstance(acc, dict):
-            raise ValueError(f"Account #{i} is not an object.")
+            raise ValueError(f"Account #{i} is not an object")
         for field in ("issuer", "name", "secret"):
             if not isinstance(acc.get(field), str):
-                raise ValueError(f"Account #{i} needs a text \"{field}\".")
+                raise ValueError(f"Account #{i} needs a text \"{field}\"")
         try:
             make_totp(acc).now()
         except Exception as e:
@@ -132,6 +133,15 @@ def list_backups(backup_dir):
     )
 
 
+def backup_time(backup_dir, name):
+    """When a backup was made: from its name, or the file's mtime if the name has no date."""
+    stamp = name[len(BACKUP_PREFIX):len(BACKUP_PREFIX) + 19]
+    try:
+        return datetime.strptime(stamp, "%Y-%m-%d_%H-%M-%S").timestamp()
+    except ValueError:
+        return os.path.getmtime(os.path.join(backup_dir, name))
+
+
 def fzf_args(python_path, preview_script):
     """fzf command for lines of the form "<index>\t<label>".
 
@@ -158,30 +168,30 @@ def get_stats(accounts):
 
 
 def scan_qr_image():
-    path = input("Path to QR code image (e.g. /home/user/Downloads/otp.png): ").strip()
+    path = os.path.expanduser(input(msg.PROMPT_QR_PATH).strip())
     if not os.path.exists(path):
-        print("File not found. Please check the path and try again.")
+        ui.error(msg.QR_NOT_FOUND.format(path=path))
         return None
     if not os.path.isfile(path):
-        print("Path is not a file. Please provide a valid file path.")
+        ui.error(msg.QR_NOT_A_FILE.format(path=path))
         return None
     if not os.access(path, os.R_OK):
-        print("File is not readable. Please check permissions.")
+        ui.error(msg.QR_NOT_READABLE.format(path=path))
         return None
     if not shutil.which("zbarimg"):
-        print("zbarimg is not installed. Please install it first.")
+        ui.error(msg.NO_ZBARIMG, msg.NO_ZBARIMG_HINT)
         return None
-    print("Scanning QR code...")
+    ui.note(msg.SCANNING_QR)
     try:
         result = subprocess.run(
             ["zbarimg", "--raw", "--quiet", path],
             check=True, capture_output=True, text=True
         )
     except FileNotFoundError:
-        print("'zbarimg' not found. Please install it first.")
+        ui.error(msg.NO_ZBARIMG, msg.NO_ZBARIMG_HINT)
         return None
     except subprocess.CalledProcessError:
-        print("Failed to read QR code using zbarimg.")
+        ui.error(msg.QR_UNREADABLE.format(path=path))
         return None
     return result.stdout.strip()
 

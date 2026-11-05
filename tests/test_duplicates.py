@@ -65,8 +65,9 @@ def test_selecting_second_duplicate_uses_its_own_secret(app):
     expected = pyotp.TOTP(ACCOUNTS[2]["secret"]).now()
     assert expected != pyotp.TOTP(ACCOUNTS[1]["secret"]).now()
     assert result.returncode == 0, result.stdout + result.stderr
-    assert f"OTP code for Work (me): {expected}" in result.stdout
-    assert expected in record["preview"]
+    label, line = result.stdout.splitlines()
+    assert label == "Work (me)" and line.split()[0] == expected
+    assert f"{expected[:3]} {expected[3:]}" in record["preview"]
 
 
 def test_fzf_and_preview_never_see_passphrase_or_secrets(app):
@@ -87,7 +88,8 @@ def test_preview_picks_code_for_current_window():
     totp = pyotp.TOTP(ACCOUNTS[0]["secret"])
     for now in (1000, 1031, 1500):
         out = preview.main(["preview.py", "5"], env, now)
-        assert totp.at(now) in out
+        code = totp.at(now)
+        assert f"{code[:3]} {code[3:]}" in out
     assert "Expires in:" in preview.main(["preview.py", "5"], env, 1000)
 
 

@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass, field
 
 from totp_cli.utils import (
+    backup_time,
     create_backup,
     fzf_args,
     generate_otp,
@@ -22,7 +23,9 @@ from totp_cli.utils import (
     scan_qr_image,
     validate_accounts,
 )
-from totp_cli import clipboard, fileio, keystore
+from totp_cli import clipboard, fileio, keystore, ui
+from totp_cli import messages as msg
+from totp_cli.ui import plural
 from totp_cli.vault import Vault, VaultFormatError, WrongPassphrase
 
 PASSPHRASE_ENV = "TOTP_CLI_PASSPHRASE"
@@ -40,7 +43,11 @@ class Context:
 
 
 class Abort(Exception):
-    """Stop the command with a message and exit code 1."""
+    """Stop the command with an error (plus optional hint lines) and exit code 1."""
+
+    def __init__(self, message, *hints):
+        super().__init__(message)
+        self.hints = hints
 
 
 # --- passphrase handling -------------------------------------------------------
@@ -56,16 +63,16 @@ def ask_new_passphrase():
     if os.environ.get(PASSPHRASE_ENV) is not None:
         passphrase = os.environ[PASSPHRASE_ENV]
         if len(passphrase) < MIN_PASSPHRASE:
-            raise Abort(f"{PASSPHRASE_ENV} must be at least {MIN_PASSPHRASE} characters.")
+            raise Abort(msg.ENV_PASSPHRASE_TOO_SHORT.format(env=PASSPHRASE_ENV, min=MIN_PASSPHRASE))
         return passphrase
-    print("Choose a passphrase to encrypt your secrets. If you forget it, they cannot be recovered.")
+    ui.warn(msg.NEW_PASSPHRASE_INTRO)
     while True:
-        first = getpass.getpass("New passphrase: ")
+        first = getpass.getpass(msg.PROMPT_NEW_PASSPHRASE)
         if len(first) < MIN_PASSPHRASE:
-            print(f"Use at least {MIN_PASSPHRASE} characters.")
+            ui.warn(msg.PASSPHRASE_TOO_SHORT.format(min=MIN_PASSPHRASE))
             continue
-        if getpass.getpass("Repeat passphrase: ") != first:
-            print("Passphrases did not match, try again.")
+        if getpass.getpass(msg.PROMPT_REPEAT_PASSPHRASE) != first:
+            ui.warn(msg.PASSPHRASES_DIFFER)
             continue
         return first
 
@@ -85,8 +92,7 @@ def _remember(ctx, passphrase, announce=True):
     if keystore.get(ctx.secrets_path) == passphrase:
         return
     if keystore.set(ctx.secrets_path, passphrase) and announce:
-        print("Passphrase saved in your keychain; otpcli won't ask again on this machine "
-              "('otpcli --forget' to undo).")
+        ui.note(msg.KEYCHAIN_SAVED)
 
 
 def open_vault(ctx):
@@ -94,8 +100,7 @@ def open_vault(ctx):
     if ctx._vault is not None:
         return ctx._vault, ctx._vault.load()
     if not os.path.exists(ctx.secrets_path):
-        msg = f"No secrets found at {ctx.secrets_path}.\nAdd accounts with:  otpcli --initialize"
-        raise Abort(msg)
+        raise Abort(msg.NO_SECRETS.format(path=_rel(ctx.secrets_path)), msg.NO_SECRETS_HINT)
 
     if _keychain_enabled(ctx):
         saved = keystore.get(ctx.secrets_path)
@@ -104,25 +109,25 @@ def open_vault(ctx):
             try:
                 accounts = vault.load()
             except WrongPassphrase:
-                print("The passphrase saved in your keychain no longer works.")
+                ui.warn(msg.KEYCHAIN_STALE)
             except VaultFormatError as e:
-                raise Abort(f"{ctx.secrets_path}: {e}")
+                raise Abort(f"{_rel(ctx.secrets_path)}: {e}")
             else:
                 ctx._vault = vault
                 return vault, accounts
 
     attempts = 1 if os.environ.get(PASSPHRASE_ENV) is not None else 3
     for attempt in range(attempts):
-        vault = Vault(ctx.secrets_path, _ask("Passphrase: "))
+        vault = Vault(ctx.secrets_path, _ask(msg.PROMPT_PASSPHRASE))
         try:
             accounts = vault.load()
         except WrongPassphrase as e:
             if attempt + 1 == attempts:
                 raise Abort(str(e))
-            print("Wrong passphrase, try again.")
+            ui.warn(msg.WRONG_PASSPHRASE_RETRY)
             continue
         except VaultFormatError as e:
-            raise Abort(f"{ctx.secrets_path}: {e}")
+            raise Abort(f"{_rel(ctx.secrets_path)}: {e}")
         ctx._vault = vault
         _remember(ctx, vault.passphrase)
         return vault, accounts
@@ -171,24 +176,31 @@ def _clear_after(args):
         if seconds < 0:
             raise ValueError
     except ValueError:
-        raise Abort(f"{clipboard.CLEAR_AFTER_ENV} must be a whole number of seconds (0 = never clear).")
+        raise Abort(msg.BAD_CLEAR_AFTER_ENV.format(env=clipboard.CLEAR_AFTER_ENV))
     return seconds
 
 
 def _copy_and_print(acc, args):
     code, remaining = generate_otp(acc)
     if args.no_copy:
-        note = "not copied"
+        note = msg.NOT_COPIED
     else:
         clear_after = _clear_after(args)
         if not clipboard.copy(code):
-            note = "clipboard unavailable"
+            note = msg.CLIPBOARD_UNAVAILABLE
         elif clear_after and clipboard.schedule_clear(code, clear_after):
-            note = f"copied to clipboard, clears in {clear_after}s"
+            note = msg.COPIED_CLEARS.format(seconds=clear_after)
         else:
-            note = "copied to clipboard"
-    print(f"\nOTP code for {label(acc)}: {code}")
-    print(f"Valid for another {remaining} seconds ({note})")
+            note = msg.COPIED
+    color = ui.time_color(remaining)
+    time_left = ui.paint(msg.TIME_LEFT.format(seconds=remaining), color)
+    note = ui.paint("· " + note, ui.DIM)
+    if ui.is_terminal():
+        shown = ui.paint(ui.group_code(code), ui.BOLD, color)
+        ui.box([f"{shown}   {time_left} {note}"], title=ui.paint(label(acc), ui.BOLD))
+    else:
+        ui.out(label(acc))
+        ui.out(f"  {code}   {time_left} {note}")
 
 
 def _find_fzf():
@@ -208,19 +220,16 @@ def cmd_get(args, ctx):
         if all(q in f"{acc['issuer']} {acc['name']}".lower() for q in query)
     ]
     if not matches:
-        print("No matching accounts found.")
-        return 1
+        if not accounts:
+            raise Abort(msg.NO_ACCOUNTS, msg.NO_SECRETS_HINT)
+        raise Abort(msg.NO_MATCH.format(query=" ".join(args.query)))
     if len(matches) == 1:
         _copy_and_print(matches[0][1], args)
         return 0
 
     if not _find_fzf():
-        print("Several accounts match, and fzf (needed to pick one) was not found.")
-        print("Install it (brew install fzf / sudo apt install fzf), set FZF_PATH,")
-        print("or narrow the search. Matches:")
-        for _, acc in matches:
-            print(f"  {label(acc)}")
-        return 1
+        raise Abort(msg.NO_FZF, msg.NO_FZF_HINT, msg.NO_FZF_HINT_NARROW,
+                    *(f"  {label(acc)}" for _, acc in matches))
 
     if sys.stdout.isatty():
         sys.stdout.write("\33]0;TOTP CLI - Terminal One-Time Password\a")
@@ -237,15 +246,14 @@ def cmd_get(args, ctx):
             input=lines, text=True, capture_output=True, check=True, env=env,
         )
     except subprocess.CalledProcessError:
-        print("No selection made.")
+        ui.note(msg.NOTHING_PICKED)
         return 1
 
     index_str, _, _ = result.stdout.rstrip("\n").partition("\t")
     try:
         acc = accounts[int(index_str)]
     except (ValueError, IndexError):
-        print("Account not found.")
-        return 1
+        raise Abort(msg.PICKED_UNKNOWN)
     _copy_and_print(acc, args)
     return 0
 
@@ -254,20 +262,21 @@ def cmd_get(args, ctx):
 
 def cmd_list(args, ctx):
     _, accounts = open_vault(ctx)
-    for acc in accounts:
-        print(label(acc))
+    if not ui.is_terminal():
+        for acc in accounts:
+            ui.out(label(acc))
+        return 0
+    ui.table(msg.LIST_HEADERS,
+             [(i, acc["issuer"], acc["name"]) for i, acc in enumerate(accounts, 1)], right={0})
     return 0
 
 
 def cmd_stats(args, ctx):
     _, accounts = open_vault(ctx)
     total, issuer_counts = get_stats(accounts)
-    print("\nTOTP CLI - Account Stats\n")
-    print(f"Total accounts: {total}")
-    print(f"Unique issuers: {len(issuer_counts)}\n")
-    max_len = max((len(issuer) for issuer in issuer_counts), default=0)
-    for issuer, count in issuer_counts.most_common():
-        print(f"  {issuer:<{max_len}} -> {count}")
+    ui.table(msg.STATS_HEADERS, issuer_counts.most_common(), right={1},
+             total=(msg.STATS_TOTAL, total),
+             note=msg.STATS_ISSUERS.format(issuers=plural(len(issuer_counts), "issuer")))
     return 0
 
 
@@ -276,17 +285,30 @@ def cmd_watch(args, ctx):
     try:
         while True:
             sys.stdout.write("\033[2J\033[H")
-            print("=== otp list ===\n")
-            remaining = 30 - int(time.time()) % 30
-            for acc in accounts:
-                code, remaining = generate_otp(acc)
-                print(f"{code} - {label(acc)}")
-            print(f"\nnew codes in {remaining:2d} seconds... (Ctrl-C to exit)")
+            _draw_watch(accounts)
             sys.stdout.flush()
             time.sleep(1)
     except KeyboardInterrupt:
         sys.stdout.write("\033[2J\033[H")
     return 0
+
+
+def _draw_watch(accounts):
+    remaining = 30 - int(time.time()) % 30
+    rows = []
+    for acc in accounts:
+        code, remaining = generate_otp(acc)
+        rows.append((code, label(acc)))
+    color = ui.time_color(remaining)
+    if not ui.is_terminal():
+        for code, name in rows:
+            ui.out(f"{code}  {name}")
+        ui.out(msg.WATCH_PLAIN_FOOTER.format(seconds=remaining))
+        return
+    lines = [f"{ui.paint(ui.group_code(code), ui.BOLD, color)}   {name}" for code, name in rows]
+    footer = [f"{ui.bar(remaining)}  {ui.paint(msg.WATCH_SECONDS.format(seconds=remaining), color)}"
+              f"      {ui.paint(msg.WATCH_EXIT, ui.DIM)}"]
+    ui.box(lines, title=ui.paint(msg.WATCH_TITLE, ui.BOLD), footer=footer)
 
 
 # --- edit --------------------------------------------------------------------------
@@ -302,8 +324,7 @@ def cmd_edit(args, ctx):
     vault, accounts = open_vault(ctx)
     editor = _pick_editor(args.editor)
     if not editor:
-        print("No suitable editor found.")
-        return 1
+        raise Abort(msg.NO_EDITOR, msg.NO_EDITOR_HINT)
 
     # decrypted copy lives next to the secrets (0700 folder) only while the editor runs
     os.makedirs(os.path.dirname(ctx.secrets_path), mode=0o700, exist_ok=True)
@@ -318,25 +339,25 @@ def cmd_edit(args, ctx):
             with open(tmp_path) as f:
                 text = f.read()
             if text == original:
-                print("No changes.")
+                ui.note(msg.NO_CHANGES)
                 return 0
             try:
                 edited = json.loads(text)
                 validate_accounts(edited)
                 break
             except ValueError as e:
-                print(f"Invalid secrets: {e}")
-                if input("Edit again? [Y/n] ").strip().lower() == "n":
-                    print("Changes discarded.")
+                ui.error(msg.INVALID_EDIT.format(error=e))
+                if input(msg.PROMPT_EDIT_AGAIN).strip().lower() == "n":
+                    ui.warn(msg.CHANGES_DISCARDED)
                     return 1
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
     if args.backup:
-        print(f"Backup saved to: {_rel(create_backup(ctx.secrets_path, ctx.backup_dir))}")
+        ui.ok(msg.BACKUP_SAVED, _rel(create_backup(ctx.secrets_path, ctx.backup_dir)))
     vault.save(edited)
-    print(f"Saved {len(edited)} account(s).")
+    ui.ok(msg.SAVED_ACCOUNTS.format(accounts=plural(len(edited), "account")))
     return 0
 
 
@@ -344,58 +365,54 @@ def cmd_edit(args, ctx):
 
 def cmd_backup_create(args, ctx):
     if not os.path.exists(ctx.secrets_path):
-        print("Nothing to back up yet.")
-        return 1
-    print(f"Backup saved to: {_rel(create_backup(ctx.secrets_path, ctx.backup_dir))}")
+        raise Abort(msg.NOTHING_TO_BACK_UP)
+    ui.ok(msg.BACKUP_SAVED, _rel(create_backup(ctx.secrets_path, ctx.backup_dir)))
     return 0
 
 
 def cmd_backup_list(args, ctx):
-    print("\nAvailable backups:")
     backups = list_backups(ctx.backup_dir)
     if not backups:
-        print("  (No backups found)")
-    for b in backups:
-        print(f"  {b}")
+        ui.note(msg.NO_BACKUPS)
+    elif not ui.is_terminal():
+        for b in backups:
+            ui.out(b)
+    else:
+        now = time.time()
+        ui.table(msg.BACKUPS_HEADERS,
+                 [(b, ui.age(now - backup_time(ctx.backup_dir, b))) for b in backups])
     return 0
 
 
 def cmd_backup_remove(args, ctx):
     if args.all:
         if args.names:
-            print("Give backup names or --remove-all, not both.")
-            return 1
+            raise Abort(msg.NAMES_AND_REMOVE_ALL)
         files = list_backups(ctx.backup_dir)
         if not files:
-            print("No backups to remove.")
+            ui.note(msg.NO_BACKUPS_TO_REMOVE)
             return 0
-        if input("This will delete ALL backups. Are you sure? [y/N] ").strip().lower() != "y":
-            print("Aborted.")
+        if input(msg.PROMPT_REMOVE_ALL).strip().lower() != "y":
+            ui.note(msg.NOTHING_DELETED)
             return 0
         for f in files:
             os.remove(os.path.join(ctx.backup_dir, f))
-            print(f"Removed: {f}")
-        print("All backups deleted.")
+        ui.ok(msg.REMOVED_ALL.format(backups=plural(len(files), "backup")))
         return 0
 
     if not args.names:
-        print("Please specify at least one backup file to remove (or --remove-all).")
-        return 1
-    removed = 0
+        raise Abort(msg.REMOVE_NEEDS_NAMES)
     for name in args.names:
         try:
             path = resolve_backup_path(ctx.backup_dir, name)
         except ValueError as e:
-            print(f"Skipped: {e}")
+            ui.warn(msg.SKIPPED_BACKUP.format(error=e))
             continue
         if os.path.isfile(path):
             os.remove(path)
-            print(f"Removed: {name}")
-            removed += 1
+            ui.ok(msg.REMOVED, name)
         else:
-            print(f"Not found: {name}")
-    if removed == 0:
-        print("No backups removed.")
+            ui.warn(msg.BACKUP_NOT_FOUND.format(name=name))
     return 0
 
 
@@ -403,16 +420,14 @@ def cmd_backup_restore(args, ctx):
     try:
         path = resolve_backup_path(ctx.backup_dir, args.name)
     except ValueError as e:
-        print(e)
-        return 1
+        raise Abort(str(e))
     if not os.path.isfile(path):
-        print(f"Backup not found: {args.name}. Use 'otpcli --list-backups' to see available backups.")
-        return 1
+        raise Abort(msg.BACKUP_NOT_FOUND.format(name=args.name), msg.BACKUP_NOT_FOUND_HINT)
 
     if not os.path.exists(ctx.secrets_path):
         with open(path, "rb") as f:
             fileio.write_private(ctx.secrets_path, f.read())
-        print(f"Backup restored from: {args.name}")
+        ui.ok(msg.RESTORED, args.name)
         return 0
 
     vault, _ = open_vault(ctx)
@@ -421,17 +436,14 @@ def cmd_backup_restore(args, ctx):
     except WrongPassphrase:
         # made before a passphrase change
         try:
-            accounts = Vault(path, _ask("This backup uses an older passphrase. Passphrase for the backup: ")).load()
+            accounts = Vault(path, _ask(msg.PROMPT_BACKUP_PASSPHRASE)).load()
         except WrongPassphrase as e:
-            print(e)
-            return 1
+            raise Abort(str(e))
     except VaultFormatError as e:
-        print(f"{args.name}: {e}")
-        return 1
+        raise Abort(msg.BACKUP_UNREADABLE.format(name=args.name, error=e))
 
     safety = save_with_backup(ctx, vault, accounts)
-    print(f"Previous secrets saved to: {_rel(safety)}")
-    print(f"Backup restored from: {args.name}")
+    ui.ok_rows([(msg.PREVIOUS_BACKED_UP, os.path.basename(safety)), (msg.RESTORED, args.name)])
     return 0
 
 
@@ -442,9 +454,9 @@ def cmd_passwd(args, ctx):
     new_vault = Vault(ctx.secrets_path, ask_new_passphrase())
     backup = save_with_backup(ctx, new_vault, accounts)
     ctx._vault = new_vault
-    print("Passphrase changed.")
+    ui.ok(msg.PASSPHRASE_CHANGED)
     _remember(ctx, new_vault.passphrase, announce=False)
-    print(f"Backups (including {_rel(backup)}) keep the passphrase they were made with.")
+    ui.note(msg.BACKUPS_KEEP_OLD_PASSPHRASE.format(backup=_rel(backup)))
     return 0
 
 
@@ -455,8 +467,11 @@ def cmd_forget(args, ctx):
     os.makedirs(os.path.dirname(ctx.secrets_path), mode=0o700, exist_ok=True)
     with open(_no_keychain_marker(ctx), "w"):
         pass
-    print("Passphrase removed from your keychain." if removed else "No passphrase was saved in your keychain.")
-    print("otpcli will ask for it every time. Use 'otpcli --remember' to save it again.")
+    if removed:
+        ui.ok(msg.KEYCHAIN_REMOVED)
+    else:
+        ui.note(msg.KEYCHAIN_WAS_EMPTY)
+    ui.note(msg.KEYCHAIN_FORGOTTEN_HINT)
     return 0
 
 
@@ -465,9 +480,8 @@ def cmd_remember(args, ctx):
     if os.path.exists(marker):
         os.remove(marker)
     if keystore._backend() is None:
-        print("No usable keychain on this machine, so otpcli will keep asking for the passphrase.")
-        return 1
-    print("otpcli will save your passphrase in the keychain the next time you unlock.")
+        raise Abort(msg.KEYCHAIN_UNAVAILABLE, msg.KEYCHAIN_UNAVAILABLE_HINT)
+    ui.ok(msg.KEYCHAIN_WILL_REMEMBER)
     return 0
 
 
@@ -476,7 +490,7 @@ def cmd_remember(args, ctx):
 def _read_migration_uri(use_qr):
     if use_qr:
         return scan_qr_image()
-    return read_hidden("Paste otpauth-migration string (input hidden): ").strip()
+    return read_hidden(msg.PROMPT_PASTE_URI).strip()
 
 
 def import_into_vault(ctx, new_accounts):
@@ -485,16 +499,35 @@ def import_into_vault(ctx, new_accounts):
     backup = save_with_backup(ctx, vault, merged)
     remember_new_store(ctx)
     if backup:
-        print(f"\nPrevious secrets backed up to: {_rel(backup)}")
+        ui.ok(msg.PREVIOUS_BACKED_UP, _rel(backup))
     skipped = len(new_accounts) - added
-    print(f"Imported {added} new account(s)" + (f", skipped {skipped} already present." if skipped else "."))
+    added_text = plural(added, "new account")
+    if skipped:
+        ui.ok(msg.IMPORTED_SKIPPED.format(added=added_text, skipped=skipped))
+    else:
+        ui.ok(msg.IMPORTED.format(added=added_text))
     return added
+
+
+def _show_qr_batch(accounts, skipped, batch_index, batch_size):
+    found = plural(len(accounts), "account")
+    if not ui.is_terminal():
+        ui.out(msg.FOUND_IN_QR.format(accounts=found, index=batch_index + 1, total=batch_size))
+        for acc in accounts:
+            ui.out(f"  {label(acc)}")
+        for name in skipped:
+            ui.warn(msg.SKIPPED_HOTP.format(name=name))
+        return
+    title = msg.QR_BOX_TITLE.format(index=batch_index + 1, total=batch_size, accounts=found)
+    lines = [label(acc) for acc in accounts]
+    lines += [f"{ui.paint('!', ui.YELLOW, ui.BOLD)} {msg.SKIPPED_HOTP.format(name=name)}" for name in skipped]
+    ui.box(lines, title=ui.paint(title, ui.BOLD))
 
 
 def cmd_import(args, ctx):
     from totp_cli.protobuf.migration import parse_migration_uri
 
-    choice = input("Do you already have the OTP migration string? [y/N] ").strip().lower()
+    choice = input(msg.PROMPT_HAVE_URI).strip().lower()
     use_qr = choice != "y"
 
     collected = []
@@ -505,24 +538,19 @@ def cmd_import(args, ctx):
         try:
             accounts, skipped, batch_index, batch_size = parse_migration_uri(uri)
         except ValueError as e:
-            print(f"Error: {e}")
+            ui.error(str(e))
             break
 
         collected.extend(accounts)
-        print(f"\nFound {len(accounts)} account(s) (QR {batch_index + 1} of {batch_size}):")
-        for acc in accounts:
-            print(f"  {label(acc)}")
-        for name in skipped:
-            print(f"  Skipped {name}: counter-based (HOTP) accounts are not supported.")
+        _show_qr_batch(accounts, skipped, batch_index, batch_size)
 
         if batch_index + 1 >= batch_size:
             break
-        more = input(f"\nThe export has {batch_size} QR codes. Import the next one? [Y/n] ").strip().lower()
+        more = input(msg.PROMPT_NEXT_QR.format(total=batch_size)).strip().lower()
         if more == "n":
             break
 
     if not collected:
-        print("Nothing imported.")
-        return 1
+        raise Abort(msg.NOTHING_IMPORTED)
     import_into_vault(ctx, collected)
     return 0

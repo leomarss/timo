@@ -7,7 +7,8 @@ import argparse
 import os
 import sys
 
-from totp_cli import __version__, commands
+from totp_cli import __version__, commands, ui
+from totp_cli import messages as msg
 from totp_cli.commands import Abort, Context
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -158,15 +159,15 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
 
     if hasattr(os, "geteuid") and os.geteuid() == 0:
-        print("otpcli doesn't run as root. Run it as your normal user, without sudo.")
+        ui.error(msg.ROOT, msg.ROOT_HINT)
         return 1
 
     args = parse(argv)
     try:
         return args.func(args, make_context())
     except Abort as e:
-        print(e)
+        ui.error(str(e), *e.hints)
         return 1
     except (KeyboardInterrupt, EOFError):
-        print()
+        print(file=sys.stderr)
         return 130
