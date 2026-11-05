@@ -63,17 +63,6 @@ The first time, you choose a passphrase. It encrypts your secrets. **If you forg
 
 After the first unlock, otpcli saves the passphrase in your OS keychain and stops asking (see [Keychain](#-keychain)).
 
-## ⬆️ Upgrading from the sudo version
-
-Earlier versions ran with `sudo` and kept unencrypted secrets in `json/secrets.json`. To move them:
-
-1. Remove your old `otpcli` alias (it used `sudo`) and install with pipx (see [Setup](#-setup)). otpcli now refuses to run as root.
-2. Run, as your normal user:
-   ```bash
-   otpcli --migrate
-   ```
-   It looks for the old file in `~/totp-cli/json/secrets.json`; if your clone is elsewhere, pass the path: `otpcli --migrate /path/to/totp-cli/json/secrets.json`. It reads the old root-owned file with `sudo cat` (the only step that needs sudo), asks you for a new passphrase, saves the encrypted secrets to `~/.config/totp-cli/`, and offers to delete the old plaintext `json/secrets.json` and `json/backups/`.
-
 ## 🧪 Usage
 
 ```
@@ -93,7 +82,6 @@ otpcli -- <words...>              Search for words that start with "-"
 --passwd                          Change the passphrase
 --forget                          Remove the passphrase from the keychain and stop saving it
 --remember                        Save it in the keychain again on the next unlock
---migrate [PATH] [--yes]          Move secrets from the old sudo version
 
 --backup                          Create a backup
 --list-backups                    Show available backups

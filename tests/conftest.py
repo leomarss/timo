@@ -26,14 +26,11 @@ def cli(tmp_path, monkeypatch, capsys):
     home = tmp_path / "config"
     monkeypatch.setenv("TOTP_CLI_HOME", str(home))
     monkeypatch.setenv("TOTP_CLI_PASSPHRASE", PASSPHRASE)
-    legacy = str(tmp_path / "repo" / "json" / "secrets.json")
-    monkeypatch.setattr(cli_module, "legacy_candidates", lambda: [legacy])
     monkeypatch.setattr(os, "geteuid", lambda: 1000)
 
     class Runner:
         secrets = home / "secrets.enc"
         backups = home / "backups"
-        legacy_json = tmp_path / "repo" / "json" / "secrets.json"
 
         def run(self, *argv, answers=()):
             replies = iter(answers)

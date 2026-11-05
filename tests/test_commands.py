@@ -29,7 +29,6 @@ TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
     (["--passwd"], "passwd"),
     (["--forget"], "forget"),
     (["--remember"], "remember"),
-    (["--migrate", "--yes"], "migrate"),
     (["--backup"], "backup"),
     (["--backup", "--remove", "a", "b"], "remove"),
     (["--remove", "a"], "remove"),
@@ -53,7 +52,8 @@ def test_query_words_are_kept():
     ["--list", "--stats"], ["--edit", "--list"], ["--restore", "x", "--backup"],  # two actions
     ["github", "--list"],  # search words with an action
     ["--list", "--no-copy"], ["--stats", "--clear-after", "5"],  # get-only options
-    ["--editor", "vim"], ["--yes"], ["--list", "--yes"],  # options without their action
+    ["--editor", "vim"],  # option without its action
+    ["--migrate"], ["--yes"],  # removed
     ["--remove-all", "--remove", "x"],
     ["--clear-after", "-1"], ["--clear-after", "soon"],
 ])
@@ -85,22 +85,13 @@ def test_refuses_to_run_as_root(cli, monkeypatch):
     monkeypatch.setattr(os, "geteuid", lambda: 0)
     code, out, _ = cli.run("--list")
     assert code == 1
-    assert "no longer runs as root" in out
+    assert "doesn't run as root" in out
 
 
-def test_missing_store_suggests_import(cli):
+def test_missing_store_suggests_initialize(cli):
     code, out, _ = cli.run("--list")
     assert code == 1
     assert "otpcli --initialize" in out
-    assert "migrate" not in out
-
-
-def test_missing_store_suggests_migrate_when_old_file_exists(cli):
-    cli.legacy_json.parent.mkdir(parents=True)
-    cli.legacy_json.write_text(json.dumps(ACC))
-    code, out, _ = cli.run("--list")
-    assert code == 1
-    assert "otpcli --migrate" in out
 
 
 def test_wrong_passphrase(cli, monkeypatch):
@@ -207,38 +198,6 @@ def test_passwd(cli, monkeypatch):
     assert len(list_backups(str(cli.backups))) == 1
 
 
-# --- migrate ----------------------------------------------------------------------
-
-def write_legacy(cli, accounts):
-    cli.legacy_json.parent.mkdir(parents=True)
-    cli.legacy_json.write_text(json.dumps(accounts))
-    backups = cli.legacy_json.parent / "backups"
-    backups.mkdir()
-    (backups / "secrets.json.bak.2025-01-01_00-00-00").write_text(json.dumps(accounts))
-
-
-def test_migrate_imports_and_deletes_plaintext(cli):
-    write_legacy(cli, TWO)
-    code, out, _ = cli.run("--migrate", answers=["y"])
-    assert code == 0
-    assert cli.load() == TWO
-    assert not cli.legacy_json.exists()
-    assert not (cli.legacy_json.parent / "backups").exists()
-
-
-def test_migrate_can_keep_old_files(cli):
-    write_legacy(cli, ACC)
-    code, out, _ = cli.run("--migrate", answers=["n"])
-    assert code == 0
-    assert cli.load() == ACC
-    assert cli.legacy_json.exists()
-
-
-def test_migrate_without_old_file(cli):
-    code, out, _ = cli.run("--migrate")
-    assert code == 1 and "No old secrets file found" in out
-
-
 @pytest.mark.parametrize("argv", [["--no-copy", "git"], ["git", "--no-copy"]])
 def test_get_options_before_or_after_words(cli, argv):
     cli.store(ACC)
@@ -255,33 +214,6 @@ def test_words_and_options_in_any_order(argv):
     from totp_cli.cli import parse
     args = parse(argv)
     assert args.action == "get" and args.query == ["github", "me"]
-
-
-def test_migrate_from_explicit_path(cli, tmp_path):
-    old = tmp_path / "elsewhere" / "secrets.json"
-    old.parent.mkdir()
-    old.write_text(json.dumps(TWO))
-    code, out, _ = cli.run("--migrate", str(old), answers=["n"])
-    assert code == 0
-    assert cli.load() == TWO
-
-
-def test_migrate_reports_where_it_looked(cli):
-    code, out, _ = cli.run("--migrate")
-    assert code == 1
-    assert str(cli.legacy_json) in out
-    assert "otpcli --migrate PATH" in out
-
-
-def test_legacy_lookup_prefers_existing_candidate(tmp_path, monkeypatch):
-    from totp_cli import cli as cli_module
-    first, second = tmp_path / "a" / "secrets.json", tmp_path / "b" / "secrets.json"
-    second.parent.mkdir()
-    second.write_text("[]")
-    monkeypatch.setattr(cli_module, "legacy_candidates", lambda: [str(first), str(second)])
-    assert cli_module.make_context().legacy_json == str(second)
-    second.unlink()
-    assert cli_module.make_context().legacy_json is None
 
 
 def test_monitor_script_starts_watch_mode():

@@ -1,7 +1,13 @@
+import base64
+import io
+import sys
+from urllib.parse import quote
+
 import pytest
 
 from conftest import PASSPHRASE
 from totp_cli import commands, keystore
+from totp_cli.protobuf import migration_pb2
 
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
 
@@ -128,9 +134,12 @@ def test_forget_and_remember(cli, typed, keychain):
 def test_new_store_saves_passphrase(cli, typed, keychain, monkeypatch):
     prompts, replies = typed
     replies.extend(["first passphrase", "first passphrase"])
-    cli.legacy_json.parent.mkdir(parents=True)
-    cli.legacy_json.write_text('[{"issuer": "A", "name": "a", "secret": "JBSWY3DPEHPK3PXP"}]')
-    code, out, _ = cli.run("--migrate", answers=["n"])
+    payload = migration_pb2.MigrationPayload(batch_index=0, batch_size=1)
+    p = payload.otp_parameters.add()
+    p.secret, p.issuer, p.name = b"0123456789", "A", "a"
+    uri = "otpauth-migration://offline?data=" + quote(base64.b64encode(payload.SerializeToString()).decode(), safe="")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(uri + "\n"))
+    code, out, _ = cli.run("--initialize", answers=["y"])
     assert code == 0
     assert keystore.get(str(cli.secrets)) == "first passphrase"
 

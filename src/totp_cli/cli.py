@@ -34,7 +34,6 @@ ACTIONS = {
     "passwd": ("--passwd", commands.cmd_passwd),
     "forget": ("--forget", commands.cmd_forget),
     "remember": ("--remember", commands.cmd_remember),
-    "migrate": ("--migrate", commands.cmd_migrate),
     "list-backups": ("--list-backups", commands.cmd_backup_list),
     "restore": ("--restore", commands.cmd_backup_restore),
     "remove": ("--remove", commands.cmd_backup_remove),
@@ -51,25 +50,11 @@ def config_dir():
     return os.path.join(base, "totp-cli")
 
 
-def legacy_candidates():
-    """Where the old sudo version kept its plaintext secrets."""
-    checkout = os.path.dirname(os.path.dirname(PACKAGE_DIR))  # repo root when run from a source checkout
-    return [
-        os.path.join(checkout, "json", "secrets.json"),
-        os.path.join(os.path.expanduser("~"), "totp-cli", "json", "secrets.json"),
-    ]
-
-
-def find_legacy_json():
-    return next((p for p in legacy_candidates() if os.path.exists(p)), None)
-
-
 def make_context():
     home = config_dir()
     return Context(
         secrets_path=os.path.join(home, "secrets.enc"),
         backup_dir=os.path.join(home, "backups"),
-        legacy_json=find_legacy_json(),
         python_path=sys.executable,
         preview_script=os.path.join(PACKAGE_DIR, "preview.py"),
     )
@@ -112,10 +97,6 @@ def build_parser():
     acts.add_argument("--passwd", action="store_true", help="change the passphrase")
     acts.add_argument("--forget", action="store_true", help="remove the passphrase from your keychain and stop saving it")
     acts.add_argument("--remember", action="store_true", help="save the passphrase in your keychain again")
-    acts.add_argument("--migrate", nargs="?", const="", metavar="PATH",
-                      help="move secrets from the old sudo version (default: json/secrets.json in "
-                           "this checkout or ~/totp-cli)")
-    acts.add_argument("--yes", action="store_true", help="with --migrate: delete the old plaintext files without asking")
 
     backups = parser.add_argument_group("backups")
     backups.add_argument("--backup", action="store_true",
@@ -163,8 +144,6 @@ def parse(argv):
             parser.error("--no-copy and --clear-after only apply when copying a code")
     if args.editor is not None and action != "edit":
         parser.error("--editor only works with --edit")
-    if args.yes and action != "migrate":
-        parser.error("--yes only works with --migrate")
 
     # names the command handlers expect
     args.action = action
@@ -172,7 +151,6 @@ def parse(argv):
     args.names = args.remove or []
     args.all = args.remove_all
     args.name = args.restore
-    args.migrate_path = args.migrate or None
     return args
 
 
@@ -180,8 +158,7 @@ def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
 
     if hasattr(os, "geteuid") and os.geteuid() == 0:
-        print("otpcli no longer runs as root. Run it as your normal user (remove sudo from your alias).")
-        print("Moving from the old sudo version? Run as yourself:  otpcli --migrate")
+        print("otpcli doesn't run as root. Run it as your normal user, without sudo.")
         return 1
 
     args = parse(argv)

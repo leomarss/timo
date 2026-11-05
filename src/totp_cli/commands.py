@@ -34,7 +34,6 @@ MIN_PASSPHRASE = 8
 class Context:
     secrets_path: str
     backup_dir: str
-    legacy_json: str  # old sudo version's plaintext file, or None
     python_path: str
     preview_script: str
     _vault: Vault = field(default=None, repr=False)
@@ -96,8 +95,6 @@ def open_vault(ctx):
         return ctx._vault, ctx._vault.load()
     if not os.path.exists(ctx.secrets_path):
         msg = f"No secrets found at {ctx.secrets_path}.\nAdd accounts with:  otpcli --initialize"
-        if ctx.legacy_json:
-            msg += "\nOr move your secrets from the old sudo version with:  otpcli --migrate"
         raise Abort(msg)
 
     if _keychain_enabled(ctx):
@@ -528,70 +525,4 @@ def cmd_import(args, ctx):
         print("Nothing imported.")
         return 1
     import_into_vault(ctx, collected)
-    return 0
-
-
-# --- migrate (from the old sudo version) -------------------------------------------
-
-def _read_legacy(path):
-    try:
-        with open(path) as f:
-            return f.read()
-    except PermissionError:
-        print(f"{path} is owned by root; reading it with sudo (you may be asked for your password).")
-        result = subprocess.run(["sudo", "cat", path], capture_output=True, text=True)
-        if result.returncode != 0:
-            raise Abort(f"Could not read {path}: {result.stderr.strip()}")
-        return result.stdout
-
-
-def _remove_legacy(paths):
-    existing = [p for p in paths if os.path.exists(p)]
-    try:
-        for p in existing:
-            if os.path.isdir(p):
-                shutil.rmtree(p)
-            else:
-                os.remove(p)
-    except PermissionError:
-        result = subprocess.run(["sudo", "rm", "-rf", "--"] + existing)
-        if result.returncode != 0:
-            print("Could not delete the old files; remove them manually:")
-            for p in existing:
-                print(f"  sudo rm -rf {shlex.quote(p)}")
-            return
-    for p in existing:
-        print(f"Deleted: {p}")
-
-
-def cmd_migrate(args, ctx):
-    path = args.migrate_path or ctx.legacy_json
-    if not path or not os.path.exists(path):
-        from totp_cli.cli import legacy_candidates
-        looked = [path] if args.migrate_path else legacy_candidates()
-        print("No old secrets file found. Looked in:")
-        for p in looked:
-            print(f"  {p}")
-        print("If it's somewhere else, run:  otpcli --migrate PATH")
-        return 1
-    try:
-        accounts = json.loads(_read_legacy(path))
-        validate_accounts(accounts)
-    except ValueError as e:
-        print(f"{path} is not a valid secrets file: {e}")
-        return 1
-
-    print(f"Found {len(accounts)} account(s) in {path}.")
-    import_into_vault(ctx, accounts)
-    print(f"Secrets are now encrypted at {_rel(ctx.secrets_path)}.")
-
-    old_backups = os.path.join(os.path.dirname(path), "backups")
-    targets = [path] + ([old_backups] if os.path.isdir(old_backups) else [])
-    print("\nThe old files are still unencrypted:")
-    for t in targets:
-        print(f"  {t}")
-    if args.yes or input("Delete them now? [y/N] ").strip().lower() == "y":
-        _remove_legacy(targets)
-    else:
-        print("Kept. Delete them once you've checked everything works.")
     return 0
