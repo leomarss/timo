@@ -1,8 +1,8 @@
 import sys
 import json
-import pyotp
-import time
 import os
+
+from utils import generate_otp  # run as a script, so utils.py is a sibling module
 
 # ANSI colors
 RESET = "\033[0m"
@@ -29,9 +29,7 @@ with open(json_path, "r") as f:
 for acc in accounts:
     label = f"{acc['issuer']} ({acc['name']})"
     if label == selected:
-        totp = pyotp.TOTP(acc["secret"])
-        code = totp.now()
-        seconds_left = 30 - int(time.time()) % 30
+        code, seconds_left = generate_otp(acc)
         color = get_color(seconds_left)
 
         print(f"{BOLD}Code:{RESET} {color}{code}{RESET} - {BOLD}Expires in:{RESET} {color}{seconds_left} seconds{RESET}")

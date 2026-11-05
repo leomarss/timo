@@ -30,8 +30,10 @@ def b32(raw):
 
 def test_parse_returns_accounts_and_batch_info():
     uri = make_uri([("GitHub", "me@x.com", b"0123456789")], batch_index=1, batch_size=3)
-    accounts, batch_index, batch_size = parse_migration_uri(uri)
-    assert accounts == [{"issuer": "GitHub", "name": "me@x.com", "secret": b32(b"0123456789")}]
+    accounts, skipped, batch_index, batch_size = parse_migration_uri(uri)
+    assert accounts == [{"issuer": "GitHub", "name": "me@x.com", "secret": b32(b"0123456789"),
+                         "algorithm": "SHA1", "digits": 6}]
+    assert skipped == []
     assert (batch_index, batch_size) == (1, 3)
 
 
@@ -94,3 +96,45 @@ def test_import_skips_duplicates(paths):
     added = import_accounts([acc], json_path, backup_dir)
     assert added == 0
     assert read(json_path) == [acc]
+
+
+def make_param_uri(configure):
+    payload = migration_pb2.MigrationPayload(batch_index=0, batch_size=1)
+    p = payload.otp_parameters.add()
+    p.secret = b"0123456789"
+    p.issuer = "X"
+    p.name = "x"
+    configure(p)
+    data = base64.b64encode(payload.SerializeToString()).decode()
+    return f"otpauth-migration://offline?data={quote(data, safe='')}"
+
+
+@pytest.mark.parametrize("enum_value, expected", [
+    (migration_pb2.ALGORITHM_UNSPECIFIED, "SHA1"),
+    (migration_pb2.ALGORITHM_SHA1, "SHA1"),
+    (migration_pb2.ALGORITHM_SHA256, "SHA256"),
+    (migration_pb2.ALGORITHM_SHA512, "SHA512"),
+    (migration_pb2.ALGORITHM_MD5, "MD5"),
+])
+def test_parse_keeps_algorithm(enum_value, expected):
+    uri = make_param_uri(lambda p: setattr(p, "algorithm", enum_value))
+    accounts, _, _, _ = parse_migration_uri(uri)
+    assert accounts[0]["algorithm"] == expected
+
+
+@pytest.mark.parametrize("enum_value, expected", [
+    (migration_pb2.DIGIT_COUNT_UNSPECIFIED, 6),
+    (migration_pb2.DIGIT_COUNT_SIX, 6),
+    (migration_pb2.DIGIT_COUNT_EIGHT, 8),
+])
+def test_parse_keeps_digits(enum_value, expected):
+    uri = make_param_uri(lambda p: setattr(p, "digits", enum_value))
+    accounts, _, _, _ = parse_migration_uri(uri)
+    assert accounts[0]["digits"] == expected
+
+
+def test_parse_skips_hotp_accounts():
+    uri = make_param_uri(lambda p: setattr(p, "type", migration_pb2.OTP_TYPE_HOTP))
+    accounts, skipped, _, _ = parse_migration_uri(uri)
+    assert accounts == []
+    assert skipped == ["X (x)"]

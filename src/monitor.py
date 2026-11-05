@@ -1,7 +1,8 @@
 import json
-import pyotp
 import time
 import os
+
+from utils.utils import generate_otp
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 json_path = os.path.join(script_dir, "../json/secrets.json")
@@ -12,13 +13,12 @@ with open(json_path, "r") as f:
 def show_otp():
     os.system("clear")
     print("=== otp list ===\n")
+    remaining_seconds = 30 - (int(time.time()) % 30)
     for acc in accounts:
         issuer = acc.get("issuer", "unknown")
         name = acc.get("name", "")
-        secret = acc["secret"]
-        totp = pyotp.TOTP(secret)
-        print(f"{totp.now()} - {issuer} ({name})")
-    remaining_seconds = 30 - (int(time.time()) % 30)
+        code, remaining_seconds = generate_otp(acc)
+        print(f"{code} - {issuer} ({name})")
     print(f"\nnew codes in {remaining_seconds:2d} seconds...")
 
 try:

@@ -150,12 +150,24 @@ All OTP secrets are stored in `json/secrets.json` as a list of dicts:
   {
     "issuer": "GitHub",
     "name": "you@example.com",
-    "secret": "JBSWY3DPEHPK3PXP"
+    "secret": "JBSWY3DPEHPK3PXP",
+    "algorithm": "SHA1",
+    "digits": 6
   }
 ]
 ```
 
-You can import secrets from a Google Authenticator QR code using the `--initialize` command.
+| Field | Required | Values | Default |
+|---|---|---|---|
+| `issuer` | yes | any string | |
+| `name` | yes | any string | |
+| `secret` | yes | base32 secret | |
+| `algorithm` | no | `SHA1`, `SHA256`, `SHA512`, `MD5` | `SHA1` |
+| `digits` | no | `6`, `8` | `6` |
+
+Codes refresh every 30 seconds. Files written before `algorithm` and `digits` were stored keep working with the defaults.
+
+You can import secrets from a Google Authenticator QR code using the `--initialize` command. Importing adds to your existing accounts (after backing up the file) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.
 
 ## 🧯 Backup and Restore
 

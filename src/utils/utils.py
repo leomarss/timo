@@ -1,3 +1,4 @@
+import hashlib
 import subprocess
 import pyotp
 import time
@@ -21,9 +22,32 @@ def save_accounts(accounts, json_path):
         json.dump(accounts, f, indent=2)
 
 
-def generate_otp(secret):
-    totp = pyotp.TOTP(secret)
-    return totp.now(), 30 - int(time.time()) % 30
+DIGESTS = {
+    "SHA1": hashlib.sha1,
+    "SHA256": hashlib.sha256,
+    "SHA512": hashlib.sha512,
+    "MD5": hashlib.md5,
+}
+
+
+def make_totp(account):
+    """Build a TOTP generator from an account dict.
+
+    "algorithm" and "digits" are optional; files written before they were
+    stored default to SHA1 and 6 digits.
+    """
+    algorithm = str(account.get("algorithm", "SHA1")).upper()
+    if algorithm not in DIGESTS:
+        raise ValueError(f"Unsupported algorithm {algorithm!r} (use one of: {', '.join(DIGESTS)})")
+    digits = account.get("digits", 6)
+    if digits not in (6, 8):
+        raise ValueError(f"Unsupported digits {digits!r} (use 6 or 8)")
+    return pyotp.TOTP(account["secret"], digits=digits, digest=DIGESTS[algorithm])
+
+
+def generate_otp(account):
+    totp = make_totp(account)
+    return totp.now(), totp.interval - int(time.time()) % totp.interval
 
 
 BACKUP_PREFIX = "secrets.json.bak."
@@ -170,7 +194,7 @@ def initialize_otp_setup(json_path, backup_dir):
         if not uri:
             break
         try:
-            accounts, batch_index, batch_size = parse_migration_uri(uri)
+            accounts, skipped, batch_index, batch_size = parse_migration_uri(uri)
         except ValueError as e:
             print(f"Error: {e}")
             break
@@ -179,6 +203,8 @@ def initialize_otp_setup(json_path, backup_dir):
         print(f"\nFound {len(accounts)} account(s) (QR {batch_index + 1} of {batch_size}):")
         for acc in accounts:
             print(f"  {acc['issuer']} ({acc['name']})")
+        for label in skipped:
+            print(f"  Skipped {label}: counter-based (HOTP) accounts are not supported.")
 
         if batch_index + 1 >= batch_size:
             break

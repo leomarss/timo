@@ -62,7 +62,7 @@ if not filtered:
 if len(filtered) == 1:
     acc = filtered[0]
     label = f"{acc['issuer']} ({acc['name']})"
-    code, remaining = generate_otp(acc["secret"])
+    code, remaining = generate_otp(acc)
     pyperclip.copy(code)
     print(f"\nOTP code for {label}: {code}")
     print(f"Valid for another {remaining} seconds (copied to clipboard)")
@@ -97,7 +97,7 @@ if not match:
     print("Account not found.")
     sys.exit(1)
 
-code, remaining = generate_otp(match["secret"])
+code, remaining = generate_otp(match)
 pyperclip.copy(code)
 print(f"\nOTP code for {selected}: {code}")
 print(f"Valid for another {remaining} seconds (copied to clipboard)")
