@@ -293,7 +293,7 @@ totp-cli/
 
 This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
 Make sure it is installed to use `otpcli --initialize` or `otpcli --add` with QR images.  
-Webcam scanning uses [PyAV](https://github.com/PyAV-Org/PyAV) to read the camera and [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp) to decode the QR code, on macOS and Linux. A mirrored preview of the camera is drawn in the terminal itself (in colour where the terminal supports 24-bit colour, in grey otherwise); frames stay in memory and are never saved. On macOS, the first scan asks you to allow your terminal app to use the camera. Press Esc or q to cancel.
+Webcam scanning uses [PyAV](https://github.com/PyAV-Org/PyAV) to read the camera and [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp) to decode the QR code, on macOS and Linux. A mirrored preview of the camera is shown in the terminal itself: as a real image in terminals with the kitty graphics protocol (kitty, Ghostty, WezTerm), otherwise drawn with block characters (in colour where the terminal supports 24-bit colour, in grey otherwise); frames stay in memory and are never saved. On macOS, the first scan asks you to allow your terminal app to use the camera. Press Esc or q to cancel.
 
 
 ## 💙 License

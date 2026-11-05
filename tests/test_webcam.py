@@ -1,3 +1,4 @@
+import os
 import sys
 
 import pytest
@@ -113,6 +114,76 @@ def test_render_in_grey_without_24_bit_colour():
 
 def test_render_has_a_line_for_each_pair_of_pixel_rows():
     assert len(webcam.render(picture(*[[RED] * 3] * 6), 3, 6)) == 3
+
+
+# --- the image preview (kitty graphics protocol) ------------------------------------
+
+def test_image_layout_fills_the_height_and_scales_the_picture_down():
+    # 100 x 28 cells of 10 x 20 pixels is 1000 x 560 pixels: a 16:9 picture fits the height
+    assert webcam.image_layout(100, 28, 10, 20, 1280, 720) == (640, 360, 99, 28)
+
+
+def test_image_layout_fills_the_width():
+    # 40 x 40 cells of 10 x 20 is 400 x 800: a 16:9 picture fits the width, 400 x 225
+    assert webcam.image_layout(40, 40, 10, 20, 1280, 720) == (400, 225, 40, 11)
+
+
+def test_image_layout_survives_a_tiny_terminal():
+    assert all(n >= 1 for n in webcam.image_layout(1, 1, 8, 16, 1280, 720))
+
+
+def test_mirror_bgr_flips_left_to_right_and_turns_bgr_into_rgb():
+    blue_then_red = bytes([255, 0, 0, 0, 0, 255])  # BGR: blue pixel, red pixel
+    assert webcam.mirror_bgr(blue_then_red, 2, 1) == bytes([255, 0, 0, 0, 0, 255])  # RGB: red, blue
+    two_rows = bytes([1, 2, 3, 4, 5, 6]) + bytes([7, 8, 9, 10, 11, 12])
+    assert webcam.mirror_bgr(two_rows, 2, 2) == bytes([6, 5, 4, 3, 2, 1, 12, 11, 10, 9, 8, 7])
+
+
+def kitty_payload(escapes):
+    """The control keys of each escape, and the image they carry."""
+    import base64
+    import re
+    import zlib
+
+    parts = re.findall(r"\x1b_G([^;]*);([^\x1b]*)\x1b\\", escapes)
+    data = zlib.decompress(base64.standard_b64decode("".join(chunk for _, chunk in parts)))
+    return [keys for keys, _ in parts], data
+
+
+def test_kitty_image_shows_the_picture_over_the_given_cells():
+    rgb = bytes(range(12))  # 2 x 2 pixels
+    keys, data = kitty_payload(webcam.kitty_image(rgb, 2, 2, 5, 3))
+    assert data == rgb
+    assert keys == [f"a=T,f=24,o=z,s=2,v=2,c=5,r=3,i={webcam.IMAGE_ID},p=1,C=1,q=2,m=0"]
+
+
+def test_kitty_image_splits_large_pictures_into_chunks():
+    rgb = os.urandom(300 * 200 * 3)  # random, so it doesn't compress into one chunk
+    keys, data = kitty_payload(webcam.kitty_image(rgb, 300, 200, 30, 10))
+    assert data == rgb
+    assert len(keys) > 1
+    assert keys[0].endswith(",m=1") and keys[0].startswith("a=T")
+    assert keys[1:-1] == ["m=1,q=2"] * (len(keys) - 2)
+    assert keys[-1] == "m=0,q=2"
+
+
+def test_kitty_supported_when_the_terminal_says_ok():
+    assert webcam.kitty_supported(b"\x1b_Gi=31;OK\x1b\\\x1b[?62;22c")
+
+
+def test_kitty_not_supported_when_the_terminal_only_answers_device_attributes():
+    assert not webcam.kitty_supported(b"\x1b[?1;2c")
+    assert not webcam.kitty_supported(b"\x1b_Gi=31;ENOTSUPPORTED:no\x1b\\\x1b[?62c")
+
+
+@pytest.mark.parametrize("keys", [b"\x1b", b"q", b"Q", b"\x1b[A\x1b"])
+def test_cancel_pressed_with_esc_or_q(keys):
+    assert webcam.cancel_pressed(keys)
+
+
+@pytest.mark.parametrize("keys", [b"", b"x", b"\x1b[A", b"\x1bOB", b"\x1b_Gi=31;OK\x1b\\", b"\x1b[?62;22c"])
+def test_cancel_not_pressed_by_other_keys_or_terminal_answers(keys):
+    assert not webcam.cancel_pressed(keys)
 
 
 # --- the commands --------------------------------------------------------------------
