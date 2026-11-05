@@ -26,6 +26,7 @@ TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
     (["--edit", "--backup", "--editor=vim"], "edit"),
     (["--editor", "vim", "--backup", "--edit"], "edit"),
     (["--initialize"], "initialize"),
+    (["--add"], "add"),
     (["--passwd"], "passwd"),
     (["--forget"], "forget"),
     (["--remember"], "remember"),

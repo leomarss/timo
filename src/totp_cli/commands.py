@@ -16,6 +16,7 @@ from totp_cli.utils import (
     generate_otp,
     get_stats,
     list_backups,
+    make_totp,
     merge_accounts,
     preview_codes,
     read_hidden,
@@ -556,3 +557,69 @@ def cmd_import(args, ctx):
         raise Abort(msg.NOTHING_IMPORTED)
     import_into_vault(ctx, collected)
     return 0
+
+# --- add ---------------------------------------------------------------------------
+
+def _read_single_account():
+    """Ask for one account (pasted link or key, or a QR code); returns an account dict."""
+    from totp_cli.otpauth import normalize_secret, parse_otpauth_uri
+
+    pasted = input(msg.PROMPT_HAVE_KEY).strip().lower() == "y"
+    text = (read_hidden(msg.PROMPT_PASTE_KEY) if pasted else scan_qr_image() or "").strip()
+    if not text:
+        raise Abort(msg.NOTHING_ADDED)
+    if text.lower().startswith("otpauth-migration:"):
+        raise Abort(msg.IS_MIGRATION, msg.IS_MIGRATION_HINT)
+
+    try:
+        if text.lower().startswith("otpauth:"):
+            acc = parse_otpauth_uri(text)
+        else:
+            acc = {"issuer": "", "name": "", "secret": normalize_secret(text),
+                   "algorithm": "SHA1", "digits": 6}
+        make_totp(acc).now()  # unsupported algorithm or digits
+    except ValueError as e:
+        raise Abort(str(e))
+
+    for field, prompt in (("issuer", msg.PROMPT_ISSUER), ("name", msg.PROMPT_ACCOUNT_NAME)):
+        while not acc[field]:
+            acc[field] = input(prompt).strip()
+    return acc
+
+
+def _same_account(a, b):
+    return (a["issuer"].casefold(), a["name"].casefold()) == (b["issuer"].casefold(), b["name"].casefold())
+
+
+def cmd_add(args, ctx):
+    acc = _read_single_account()
+    vault, accounts = open_or_create_vault(ctx)
+
+    match = next((i for i, old in enumerate(accounts) if _same_account(old, acc)), None)
+    if match is None:
+        accounts = accounts + [acc]
+        done = msg.ADDED.format(name=label(acc))
+    else:
+        old = accounts[match]
+        if old["secret"] == acc["secret"]:
+            ui.warn(msg.ALREADY_PRESENT.format(name=label(old)))
+            return 0
+        if input(msg.PROMPT_REPLACE.format(name=label(old))).strip().lower() != "y":
+            raise Abort(msg.NOTHING_ADDED)
+        # keep the label you had (maybe renamed with --edit), take the new key
+        acc = {**acc, "issuer": old["issuer"], "name": old["name"]}
+        accounts = accounts[:match] + [acc] + accounts[match + 1:]
+        done = msg.REPLACED.format(name=label(acc))
+
+    backup = save_with_backup(ctx, vault, accounts)
+    remember_new_store(ctx)
+    if ui.is_terminal():
+        ui.out()
+    _copy_and_print(acc, args)  # sites ask for a code to finish turning on 2FA
+    if ui.is_terminal():
+        ui.out()
+    if backup:
+        ui.ok(msg.PREVIOUS_BACKED_UP, _rel(backup))
+    ui.ok(done)
+    return 0
+

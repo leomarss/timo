@@ -32,6 +32,7 @@ ACTIONS = {
     "watch": ("--watch", commands.cmd_watch),
     "edit": ("--edit", commands.cmd_edit),
     "initialize": ("--initialize", commands.cmd_import),
+    "add": ("--add", commands.cmd_add),
     "passwd": ("--passwd", commands.cmd_passwd),
     "forget": ("--forget", commands.cmd_forget),
     "remember": ("--remember", commands.cmd_remember),
@@ -95,6 +96,7 @@ def build_parser():
     acts.add_argument("--edit", action="store_true", help="edit the decrypted accounts in your editor")
     acts.add_argument("--editor", metavar="CMD", help="with --edit: editor to use (default: $EDITOR, then vi/nano/vim)")
     acts.add_argument("--initialize", action="store_true", help="import accounts from a Google Authenticator export")
+    acts.add_argument("--add", action="store_true", help="add one account from a setup QR code, otpauth:// link or secret key")
     acts.add_argument("--passwd", action="store_true", help="change the passphrase")
     acts.add_argument("--forget", action="store_true", help="remove the passphrase from your keychain and stop saving it")
     acts.add_argument("--remember", action="store_true", help="save the passphrase in your keychain again")

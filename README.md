@@ -15,6 +15,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 - Runs as your normal user, no `sudo`
 - Encrypted backups, restore and passphrase change
 - Import from Google Authenticator QR (via image)
+- Add single accounts from a site's 2FA setup QR code, `otpauth://` link or secret key
 
 ## 📦 Requirements
 
@@ -79,6 +80,7 @@ otpcli -- <words...>              Search for words that start with "-"
 --edit --backup                   Back up before saving the changes
 --edit --editor=<CMD>             Use a specific editor (e.g. --editor=vim)
 --initialize                      Import from a Google Authenticator export
+--add                             Add one account (setup QR code, otpauth:// link or secret key)
 --passwd                          Change the passphrase
 --forget                          Remove the passphrase from the keychain and stop saving it
 --remember                        Save it in the keychain again on the next unlock
@@ -98,6 +100,12 @@ Every option starts with `-` or `--`, and plain words are always a search, so an
 ### Importing
 
 `otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.
+
+### Adding an account
+
+`otpcli --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, otpcli asks for the issuer and account name.
+
+The current code is shown and copied right away, since most sites ask for one to finish the setup. If the account already exists with a different key (you reset 2FA on that site), otpcli asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
 
 ### Editing
 
@@ -254,7 +262,7 @@ totp-cli/
 ## 📌 Credits
 
 This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
-Make sure it is installed to use `otpcli --initialize` with QR images.
+Make sure it is installed to use `otpcli --initialize` or `otpcli --add` with QR images.
 
 
 ## 💙 License

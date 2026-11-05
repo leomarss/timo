@@ -11,7 +11,7 @@ ui function that prints it, not here. Conventions:
 ROOT = "otpcli doesn't run as root"
 ROOT_HINT = "Run it as your normal user, without sudo"
 NO_SECRETS = "No secrets found at {path}"
-NO_SECRETS_HINT = "Add accounts with: otpcli --initialize"
+NO_SECRETS_HINT = "Add accounts with: otpcli --initialize (or otpcli --add for one)"
 
 # --- passphrase --------------------------------------------------------------------
 PROMPT_PASSPHRASE = "Passphrase: "
@@ -110,3 +110,16 @@ NO_ZBARIMG = "zbarimg isn't installed"
 NO_ZBARIMG_HINT = "Install it with: brew install zbar / sudo apt install zbar-tools"
 SCANNING_QR = "Scanning QR code…"
 QR_UNREADABLE = "zbarimg couldn't read a QR code in {path}"
+
+# --- add ---------------------------------------------------------------------------
+PROMPT_HAVE_KEY = "Do you already have the otpauth:// link or the secret key? [y/N] "
+PROMPT_PASTE_KEY = "Paste the otpauth:// link or the secret key (input hidden): "
+PROMPT_ISSUER = "Issuer (e.g. GitHub): "
+PROMPT_ACCOUNT_NAME = "Account name (e.g. you@example.com): "
+PROMPT_REPLACE = "{name} already exists with a different secret key. Replace it? [y/N] "
+IS_MIGRATION = "That's a Google Authenticator export, not a single account"
+IS_MIGRATION_HINT = "Import it with: otpcli --initialize"
+ALREADY_PRESENT = "{name} is already present"
+NOTHING_ADDED = "Nothing added"
+ADDED = "Added {name}"
+REPLACED = "Replaced {name}"
