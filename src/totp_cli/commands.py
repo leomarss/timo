@@ -521,9 +521,9 @@ def cmd_remember(args, ctx):
 
 # --- import ------------------------------------------------------------------------
 
-def _read_migration_uri(use_qr):
+def _read_migration_uri(use_qr, seen=()):
     if use_qr:
-        return scan_qr_image()
+        return scan_qr_image(seen)
     return read_hidden(msg.PROMPT_PASTE_URI).strip()
 
 
@@ -567,10 +567,12 @@ def cmd_import(args, ctx):
     use_qr = not ui.confirm(msg.PROMPT_HAVE_URI)
 
     collected = []
+    seen = set()
     while True:
-        uri = _read_migration_uri(use_qr)
+        uri = _read_migration_uri(use_qr, seen)
         if not uri:
             break
+        seen.add(uri)
         try:
             accounts, skipped, batch_index, batch_size = parse_migration_uri(uri)
         except ValueError as e:

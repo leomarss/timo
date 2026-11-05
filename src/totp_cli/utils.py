@@ -182,8 +182,15 @@ def get_stats(accounts):
     return total, issuer_counts
 
 
-def scan_qr_image():
+def scan_qr_image(seen=()):
+    """Read a QR code from an image path, or from the webcam if the path is left empty.
+
+    The webcam skips QR codes in seen (the parts of an export already read) and
+    anything that isn't an otpauth link. Returns the text, or None.
+    """
     path = os.path.expanduser(input(msg.PROMPT_QR_PATH).strip())
+    if not path:
+        return scan_qr_webcam(seen)
     if not os.path.exists(path):
         ui.error(msg.QR_NOT_FOUND.format(path=path))
         return None
@@ -209,6 +216,17 @@ def scan_qr_image():
         ui.error(msg.QR_UNREADABLE.format(path=path))
         return None
     return result.stdout.strip()
+
+
+def scan_qr_webcam(seen=()):
+    from totp_cli import webcam
+
+    ui.note(msg.SCANNING_WEBCAM)
+    try:
+        return webcam.scan(lambda text: text.lower().startswith("otpauth") and text not in seen)
+    except webcam.Unavailable as e:
+        ui.error(e.message, *e.hints)
+        return None
 
 
 def read_hidden(prompt):

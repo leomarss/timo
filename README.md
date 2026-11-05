@@ -14,7 +14,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 - Passphrase remembered in your OS keychain, so you type it once per machine
 - Runs as your normal user, no `sudo`
 - Encrypted backups, restore and passphrase change
-- Import from Google Authenticator QR (via image)
+- Import from Google Authenticator QR (via image or webcam)
 - Add single accounts from a site's 2FA setup QR code, `otpauth://` link or secret key
 
 ## 📦 Requirements
@@ -23,6 +23,7 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 - [`pipx`](https://pipx.pypa.io/) (`brew install pipx` or `sudo apt install pipx`)
 - `fzf` installed and available in `$PATH`
 - `zbarimg` to import from QR code images (optional)
+- OpenCV to scan QR codes with the webcam (optional, the `webcam` extra)
 
 ## 🔧 Setup
 
@@ -52,6 +53,13 @@ If `fzf` is installed but not found by the script, you can set its path manually
 
 ```bash
 export FZF_PATH=$(dirname $(which fzf))
+```
+
+To scan QR codes with the webcam, add OpenCV to otpcli's environment:
+```bash
+pipx inject totp-cli opencv-python
+# or install with the extra from the start:
+pipx install 'totp-cli[webcam] @ git+https://github.com/leomarss/totp-cli.git'
 ```
 
 Then add your accounts:
@@ -114,11 +122,11 @@ Yes/no questions take a single key: `y` or `n`, Enter for the default (the capit
 
 ### Importing
 
-`otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have: an account counts as the same when its secret key matches, whatever its label (so renaming one with `--edit` doesn't make it come back). Counter-based (HOTP) accounts are not supported and are skipped with a warning.
+`otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, scan it with the webcam (leave the image path empty), or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full; with the webcam, show each code in turn and the one already read is ignored. Importing adds to your existing accounts (after a backup) and skips accounts you already have: an account counts as the same when its secret key matches, whatever its label (so renaming one with `--edit` doesn't make it come back). Counter-based (HOTP) accounts are not supported and are skipped with a warning.
 
 ### Adding an account
 
-`otpcli --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, otpcli asks for the issuer and account name.
+`otpcli --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page) or with the webcam (leave the image path empty), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, otpcli asks for the issuer and account name.
 
 The current code is shown and copied right away, since most sites ask for one to finish the setup. If the key is already there under any label, nothing changes. If the account already exists with a different key (you reset 2FA on that site), otpcli asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
 
@@ -272,6 +280,7 @@ totp-cli/
 │       ├── ui.py                # How output is shown (boxes, tables, colour, stdout/stderr)
 │       ├── utils.py             # OTP generation, backups, helpers
 │       ├── preview.py           # Preview shown in fzf
+│       ├── webcam.py            # QR scanning with the webcam (optional)
 │       └── protobuf/            # Google Authenticator export decoding
 │           ├── migration.py
 │           ├── migration_pb2.py
@@ -283,7 +292,8 @@ totp-cli/
 ## 📌 Credits
 
 This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
-Make sure it is installed to use `otpcli --initialize` or `otpcli --add` with QR images.
+Make sure it is installed to use `otpcli --initialize` or `otpcli --add` with QR images.  
+Webcam scanning uses [OpenCV](https://opencv.org/) (`opencv-python`). The camera window shows a mirrored preview; frames stay in memory and are never saved. On macOS, the first scan asks you to allow your terminal app to use the camera. Press Esc in the window to cancel.
 
 
 ## 💙 License

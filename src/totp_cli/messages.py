@@ -99,7 +99,7 @@ BACKUP_UNREADABLE = "{name}: {error}"
 # --- import ------------------------------------------------------------------------
 PROMPT_HAVE_URI = "Do you already have the OTP migration string?"
 PROMPT_PASTE_URI = "Paste otpauth-migration string (input hidden): "
-PROMPT_QR_PATH = "Path to QR code image (e.g. ~/Downloads/otp.png): "
+PROMPT_QR_PATH = "Path to QR code image (e.g. ~/Downloads/otp.png), or Enter to use the webcam: "
 PROMPT_NEXT_QR = "The export has {total} QR codes. Import the next one?"
 FOUND_IN_QR = "Found {accounts} in QR {index} of {total}:"
 QR_BOX_TITLE = "QR {index} of {total} · {accounts}"
@@ -114,6 +114,13 @@ NO_ZBARIMG = "zbarimg isn't installed"
 NO_ZBARIMG_HINT = "Install it with: brew install zbar / sudo apt install zbar-tools"
 SCANNING_QR = "Scanning QR code…"
 QR_UNREADABLE = "zbarimg couldn't read a QR code in {path}"
+SCANNING_WEBCAM = "Show the QR code to the camera (Esc in the camera window to cancel)…"
+NO_WEBCAM_EXTRA = "Scanning with the webcam needs OpenCV"
+NO_WEBCAM_EXTRA_HINT = "Install it with: pipx inject totp-cli opencv-python"
+WEBCAM_UNAVAILABLE = "Can't use the webcam"
+WEBCAM_UNAVAILABLE_HINT = ("On macOS, allow your terminal app in System Settings › Privacy & Security › Camera, "
+                           "then try again")
+WEBCAM_FAILED = "The webcam window failed: {error}"
 
 # --- add ---------------------------------------------------------------------------
 PROMPT_HAVE_KEY = "Do you already have the otpauth:// link or the secret key?"
