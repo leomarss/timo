@@ -172,10 +172,52 @@ def _scan_qr_image():
     return result.stdout.strip()
 
 
+def read_hidden(prompt):
+    """Read one line without echoing it, with no length limit.
+
+    getpass() reads in canonical mode, which macOS caps at 1024 bytes per
+    line, enough to silently truncate a large migration string. This turns
+    off echo and canonical mode instead and reads byte by byte.
+    """
+    if not sys.stdin.isatty():
+        return sys.stdin.readline().rstrip("\r\n")
+
+    import termios
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    new = termios.tcgetattr(fd)
+    new[3] &= ~(termios.ECHO | termios.ICANON)
+    new[6][termios.VMIN] = 1
+    new[6][termios.VTIME] = 0
+
+    chars = []
+    try:
+        termios.tcsetattr(fd, termios.TCSAFLUSH, new)
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
+        while True:
+            ch = os.read(fd, 1)
+            if ch in (b"\n", b"\r"):
+                break
+            if ch == b"" or (ch == b"\x04" and not chars):
+                raise EOFError
+            if ch in (b"\x7f", b"\x08"):
+                if chars:
+                    chars.pop()
+                continue
+            chars.append(ch)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    return b"".join(chars).decode("utf-8", errors="replace")
+
+
 def _read_migration_uri(use_qr):
     if use_qr:
         return _scan_qr_image()
-    return input("Paste otpauth-migration string: ").strip()
+    return read_hidden("Paste otpauth-migration string (input hidden): ").strip()
 
 
 def initialize_otp_setup(json_path, backup_dir):
