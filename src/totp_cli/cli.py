@@ -13,17 +13,12 @@ from totp_cli.commands import Abort, Context
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-DESCRIPTION = "TOTP CLI - Terminal One-Time Password"
-EPILOG = """\
-examples:
-  otpcli                     pick an account with fzf and copy its code
-  otpcli github              copy the code if exactly one account matches "github"
-  otpcli --edit --backup     back up, then edit the accounts
-  otpcli -- -weird           search for a word that starts with "-"
-
-Secrets are encrypted with your passphrase in ~/.config/totp-cli/
-(override with TOTP_CLI_HOME).
-"""
+INTRO = "otpcli · one-time passwords in your terminal"
+FOOTER = (
+    "Secrets live in ~/.config/totp-cli/ (set TOTP_CLI_HOME to use another folder).",
+    "Set TOTP_CLI_CLEAR_AFTER to change the default of --clear-after.",
+    'To search for a word that starts with "-": otpcli -- -word',
+)
 
 # action name -> (flag, handler)
 ACTIONS = {
@@ -73,43 +68,105 @@ def _seconds(value):
     return seconds
 
 
+class Parser(argparse.ArgumentParser):
+    """An ArgumentParser whose --help is grouped by task.
+
+    The help is generated from the add_argument() calls: flag names and
+    placeholders come from each action, descriptions from its help=. Only the
+    section titles, INTRO and FOOTER are written by hand. Options that only
+    work with one action are listed indented under it.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.sections = []  # [(title, [(action, help, indented)])]
+
+    def section(self, title):
+        self.sections.append((title, []))
+
+    def option(self, *flags, under=None, **kwargs):
+        """add_argument(), and list it in the current section (indented if `under` an action)."""
+        action = self.add_argument(*flags, **kwargs)
+        self.show(action, under=under)
+        return action
+
+    def show(self, action, help=None, under=None):
+        """List an action (again) in the current section, e.g. --backup under --edit."""
+        self.sections[-1][1].append((action, help or action.help, under is not None))
+
+    def format_help(self):
+        rows = [(title, [(_invocation(action), text, indented) for action, text, indented in entries])
+                for title, entries in self.sections]
+        width = max(len(name) + len(meta) + (4 if indented else 0)
+                    for _, entries in rows for (name, meta), _, indented in entries)
+        lines = [ui.paint(INTRO, ui.BOLD), ""]
+        for title, entries in rows:
+            lines.append(ui.paint(title, ui.BOLD))
+            for (name, meta), text, indented in entries:
+                indent = "      " if indented else "  "
+                gap = " " * (width - len(name) - len(meta) - len(indent) + 5)
+                shown = ui.paint(name, ui.CYAN) + (ui.paint(meta, ui.DIM) if meta else "")
+                lines.append(f"{indent}{shown}{gap}{text}")
+            lines.append("")
+        lines += [ui.paint(line, ui.DIM) for line in FOOTER]
+        return "\n".join(lines) + "\n"
+
+
+def _invocation(action):
+    """("--restore", " NAME"): how an action is typed, split into name and placeholder."""
+    if not action.option_strings:
+        return "otpcli", f" [{action.metavar}...]"
+    name = ", ".join(sorted(action.option_strings, key=len, reverse=True))
+    if action.nargs == 0:
+        return name, ""
+    metavar = action.metavar or action.dest.upper()
+    return name, f" {metavar}..." if action.nargs == "+" else f" {metavar}"
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(
+    parser = Parser(
         prog="otpcli",
         usage="otpcli [WORDS...] [--no-copy] [--clear-after SECONDS]\n       otpcli --<action> [options]",
-        description=DESCRIPTION, epilog=EPILOG,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,  # -h is declared below, in its section
         allow_abbrev=False,  # flags must be spelled out: --lis is not --list
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    parser.add_argument("query", nargs="*", metavar="WORDS",
-                        help="copy the code of the account matching all words (fzf picker if several match)")
+    option = parser.option
 
-    get = parser.add_argument_group("copying a code")
-    get.add_argument("--no-copy", action="store_true", help="print the code without copying it")
-    get.add_argument("--clear-after", type=_seconds, metavar="SECONDS",
-                     help="clear the clipboard after SECONDS, 0 = never (default: $TOTP_CLI_CLEAR_AFTER or 45)")
+    parser.section("Copy a code")
+    words = option("query", nargs="*", metavar="WORDS",
+                   help="copy the code of the account matching all words (none: pick with fzf)")
+    option("--no-copy", action="store_true", under=words, help="print the code, don't copy it")
+    option("--clear-after", type=_seconds, metavar="SECONDS", under=words,
+           help="clear the clipboard after SECONDS, 0 = never (default 45)")
 
-    acts = parser.add_argument_group("actions")
-    acts.add_argument("--list", action="store_true", help="print all account labels")
-    acts.add_argument("--stats", action="store_true", help="show account counts per issuer")
-    acts.add_argument("--watch", action="store_true", help="show all codes, refreshing every second")
-    acts.add_argument("--edit", action="store_true", help="edit the decrypted accounts in your editor")
-    acts.add_argument("--editor", metavar="CMD", help="with --edit: editor to use (default: $EDITOR, then vi/nano/vim)")
-    acts.add_argument("--initialize", action="store_true", help="import accounts from a Google Authenticator export")
-    acts.add_argument("--add", action="store_true", help="add one account from a setup QR code, otpauth:// link or secret key")
-    acts.add_argument("--remove", action="store_true", help="pick an account and remove it (asks first)")
-    acts.add_argument("--passwd", action="store_true", help="change the passphrase")
-    acts.add_argument("--forget", action="store_true", help="remove the passphrase from your keychain and stop saving it")
-    acts.add_argument("--remember", action="store_true", help="save the passphrase in your keychain again")
+    parser.section("See your accounts")
+    option("--list", action="store_true", help="print all account labels")
+    option("--stats", action="store_true", help="show account counts per issuer")
+    option("--watch", action="store_true", help="show all codes, refreshing every second")
 
-    backups = parser.add_argument_group("backups")
-    backups.add_argument("--backup", action="store_true",
-                         help="create a backup (with --edit: back up before saving changes)")
-    backups.add_argument("--list-backups", action="store_true", help="show available backups")
-    backups.add_argument("--restore", metavar="NAME", help="restore a backup (current secrets are backed up first)")
-    backups.add_argument("--remove-backups", nargs="+", metavar="NAME", help="delete backups")
-    backups.add_argument("--remove-all-backups", action="store_true", help="delete all backups (asks first)")
+    parser.section("Add and change accounts")
+    option("--initialize", action="store_true", help="import a Google Authenticator export")
+    option("--add", action="store_true", help="add one account (setup QR code, otpauth:// link or secret key)")
+    option("--remove", action="store_true", help="pick an account and remove it (asks first)")
+    edit = option("--edit", action="store_true", help="edit the decrypted accounts in your editor")
+    backup = option("--backup", action="store_true", under=edit, help="back up before saving the changes")
+    option("--editor", metavar="CMD", under=edit, help="editor to use (default: $EDITOR, then vi/nano/vim)")
+
+    parser.section("Backups")
+    parser.show(backup, help="create a backup")
+    option("--list-backups", action="store_true", help="show available backups")
+    option("--restore", metavar="NAME", help="restore a backup (current secrets are backed up first)")
+    option("--remove-backups", nargs="+", metavar="NAME", help="delete backups")
+    option("--remove-all-backups", action="store_true", help="delete all backups (asks first)")
+
+    parser.section("Passphrase")
+    option("--passwd", action="store_true", help="change the passphrase")
+    option("--forget", action="store_true", help="remove it from your keychain and stop saving it")
+    option("--remember", action="store_true", help="save it in your keychain again on the next unlock")
+
+    parser.section("Other")
+    option("--version", action="version", version=f"%(prog)s {__version__}", help="show the installed version")
+    option("-h", "--help", action="help", help="show this help")
     return parser
 
 

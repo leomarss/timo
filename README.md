@@ -67,33 +67,45 @@ After the first unlock, otpcli saves the passphrase in your OS keychain and stop
 ## 🧪 Usage
 
 ```
-otpcli                            Pick an account with fzf and copy its code
-otpcli <words...>                 Copy the code if exactly one account matches all words
-    --no-copy                     Print the code without copying it
-    --clear-after SECONDS         Clear the clipboard after SECONDS (0 = never; default 45)
-otpcli -- <words...>              Search for words that start with "-"
+otpcli · one-time passwords in your terminal
 
---list                            Print all account labels
---stats                           Show account counts per issuer
---watch                           Show all codes, refreshing every second
---edit                            Edit the decrypted accounts in your editor
---edit --backup                   Back up before saving the changes
---edit --editor=<CMD>             Use a specific editor (e.g. --editor=vim)
---initialize                      Import from a Google Authenticator export
---add                             Add one account (setup QR code, otpauth:// link or secret key)
---remove                          Pick an account and remove it (asks first)
---passwd                          Change the passphrase
---forget                          Remove the passphrase from the keychain and stop saving it
---remember                        Save it in the keychain again on the next unlock
+Copy a code
+  otpcli [WORDS...]           copy the code of the account matching all words (none: pick with fzf)
+      --no-copy               print the code, don't copy it
+      --clear-after SECONDS   clear the clipboard after SECONDS, 0 = never (default 45)
 
---backup                          Create a backup
---list-backups                    Show available backups
---remove-backups <NAMES...>       Delete backups
---remove-all-backups              Delete all backups (asks first)
---restore <NAME>                  Restore a backup (current secrets are backed up first)
+See your accounts
+  --list                      print all account labels
+  --stats                     show account counts per issuer
+  --watch                     show all codes, refreshing every second
 
---version                         Show the installed version
---help, -h                        Help
+Add and change accounts
+  --initialize                import a Google Authenticator export
+  --add                       add one account (setup QR code, otpauth:// link or secret key)
+  --remove                    pick an account and remove it (asks first)
+  --edit                      edit the decrypted accounts in your editor
+      --backup                back up before saving the changes
+      --editor CMD            editor to use (default: $EDITOR, then vi/nano/vim)
+
+Backups
+  --backup                    create a backup
+  --list-backups              show available backups
+  --restore NAME              restore a backup (current secrets are backed up first)
+  --remove-backups NAME...    delete backups
+  --remove-all-backups        delete all backups (asks first)
+
+Passphrase
+  --passwd                    change the passphrase
+  --forget                    remove it from your keychain and stop saving it
+  --remember                  save it in your keychain again on the next unlock
+
+Other
+  --version                   show the installed version
+  --help, -h                  show this help
+
+Secrets live in ~/.config/totp-cli/ (set TOTP_CLI_HOME to use another folder).
+Set TOTP_CLI_CLEAR_AFTER to change the default of --clear-after.
+To search for a word that starts with "-": otpcli -- -word
 ```
 
 Every option starts with `-` or `--`, and plain words are always a search, so an account can be called "edit" or "list". Options must be spelled out in full, and only one action can be used at a time.
