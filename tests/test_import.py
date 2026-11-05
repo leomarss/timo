@@ -1,13 +1,14 @@
 import base64
-import json
+import io
 import os
+import sys
 from urllib.parse import quote
 
 import pytest
 
 import migration_pb2
 from utils.protobuf.extract_google_otp_from_qr import parse_migration_uri
-from utils.utils import import_accounts, list_backups
+from utils.utils import list_backups
 
 
 def make_uri(params, batch_index=0, batch_size=1):
@@ -47,55 +48,51 @@ def test_parse_rejects_missing_data():
         parse_migration_uri("otpauth-migration://offline?foo=bar")
 
 
-@pytest.fixture
-def paths(tmp_path):
-    return str(tmp_path / "json" / "secrets.json"), str(tmp_path / "json" / "backups")
+def run_import(cli, monkeypatch, *uris, answers=("y",)):
+    """Run 'otpcli import', pasting each URI in turn."""
+    monkeypatch.setattr(sys, "stdin", io.StringIO("".join(u + "\n" for u in uris)))
+    return cli.run("import", answers=answers)
 
 
-def read(path):
-    with open(path) as f:
-        return json.load(f)
+A = ("GitHub", "me", b"0123456789")
+B = ("AWS", "me", b"abcdefghij")
 
 
-def test_import_creates_file_with_private_permissions(paths):
-    json_path, backup_dir = paths
-    new = [{"issuer": "A", "name": "a", "secret": "AAAA"}]
-    added = import_accounts(new, json_path, backup_dir)
-    assert added == 1
-    assert read(json_path) == new
-    assert os.stat(json_path).st_mode & 0o777 == 0o600
+def test_import_creates_encrypted_store(cli, monkeypatch):
+    code, out, _ = run_import(cli, monkeypatch, make_uri([A]))
+    assert code == 0
+    assert "Imported 1 new account(s)." in out
+    assert cli.load() == [{"issuer": "GitHub", "name": "me", "secret": b32(A[2]),
+                           "algorithm": "SHA1", "digits": 6}]
+    assert b"GitHub" not in cli.secrets.read_bytes()
+    assert os.stat(cli.secrets).st_mode & 0o777 == 0o600
 
 
-def test_import_merges_instead_of_overwriting(paths):
-    json_path, backup_dir = paths
-    existing = [{"issuer": "Old", "name": "o", "secret": "OOOO"}]
-    import_accounts(existing, json_path, backup_dir)
+def test_import_merges_and_backs_up(cli, monkeypatch):
+    run_import(cli, monkeypatch, make_uri([A]))
+    code, out, _ = run_import(cli, monkeypatch, make_uri([A, B]))
 
-    added = import_accounts([{"issuer": "New", "name": "n", "secret": "NNNN"}], json_path, backup_dir)
-
-    assert added == 1
-    assert read(json_path) == existing + [{"issuer": "New", "name": "n", "secret": "NNNN"}]
-
-
-def test_import_backs_up_existing_file(paths):
-    json_path, backup_dir = paths
-    import_accounts([{"issuer": "Old", "name": "o", "secret": "OOOO"}], json_path, backup_dir)
-    assert list_backups(backup_dir) == []
-
-    import_accounts([{"issuer": "New", "name": "n", "secret": "NNNN"}], json_path, backup_dir)
-
-    backups = list_backups(backup_dir)
-    assert len(backups) == 1
-    assert read(os.path.join(backup_dir, backups[0])) == [{"issuer": "Old", "name": "o", "secret": "OOOO"}]
+    assert code == 0
+    assert "Imported 1 new account(s), skipped 1 already present." in out
+    assert [a["issuer"] for a in cli.load()] == ["GitHub", "AWS"]
+    assert len(list_backups(str(cli.backups))) == 1
 
 
-def test_import_skips_duplicates(paths):
-    json_path, backup_dir = paths
-    acc = {"issuer": "A", "name": "a", "secret": "AAAA"}
-    import_accounts([acc], json_path, backup_dir)
-    added = import_accounts([acc], json_path, backup_dir)
-    assert added == 0
-    assert read(json_path) == [acc]
+def test_import_all_qr_codes_of_a_multi_part_export(cli, monkeypatch):
+    code, out, _ = run_import(
+        cli, monkeypatch,
+        make_uri([A], batch_index=0, batch_size=2),
+        make_uri([B], batch_index=1, batch_size=2),
+        answers=("y", ""),
+    )
+    assert code == 0
+    assert "QR 2 of 2" in out
+    assert [a["issuer"] for a in cli.load()] == ["GitHub", "AWS"]
+
+
+def test_import_never_prints_secrets(cli, monkeypatch):
+    _, out, err = run_import(cli, monkeypatch, make_uri([A]))
+    assert b32(A[2]) not in out + err
 
 
 def make_param_uri(configure):

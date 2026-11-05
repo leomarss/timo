@@ -1,15 +1,20 @@
+"""End to end: real app process, fake fzf that runs the real preview script."""
+import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
 
 import pyotp
 import pytest
-import shutil
 
-from utils.utils import fzf_args
+from utils import preview
+from utils.utils import fzf_args, preview_codes
+from utils.vault import Vault
 
 SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+PASSPHRASE = "e2e passphrase"
 
 ACCOUNTS = [
     {"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"},
@@ -17,61 +22,89 @@ ACCOUNTS = [
     {"issuer": "Work", "name": "me", "secret": "MFRGGZDFMZTWQ2LK"},
 ]
 
-
-def make_copy(tmp_path):
-    """Copy of the app with a fake fzf that picks a given line and runs the preview."""
-    import json
-    import shutil
-
-    root = tmp_path / "app"
-    shutil.copytree(SRC, root / "src")
-    (root / "json").mkdir()
-    (root / "json" / "secrets.json").write_text(json.dumps(ACCOUNTS))
-    (root / "env" / "bin").mkdir(parents=True)
-    # a wrapper, not a symlink: a symlinked venv python loses its packages
-    python = root / "env" / "bin" / "python"
-    python.write_text(f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
-    python.chmod(python.stat().st_mode | stat.S_IEXEC)
-
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    fake_fzf = bin_dir / "fzf"
-    # Picks line $PICK (0-based) of stdin; writes the preview of that line to $PREVIEW_OUT.
-    fake_fzf.write_text(f"""#!{sys.executable}
-import os, subprocess, sys
+# Picks line $PICK (0-based), runs the preview command for it, and records
+# the preview output plus the environment fzf was started with.
+FAKE_FZF = """#!{python}
+import json, os, subprocess, sys
 args = sys.argv[1:]
 lines = sys.stdin.read().splitlines()
 line = lines[int(os.environ["PICK"])]
 preview = args[args.index("--preview") + 1]
 delim = next(a.split("=", 1)[1] for a in args if a.startswith("--delimiter="))
-field1 = line.split(delim)[0]
-cmd = preview.replace("{{1}}", "'" + field1 + "'")
+cmd = preview.replace("{{1}}", "'" + line.split(delim)[0] + "'")
 out = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-open(os.environ["PREVIEW_OUT"], "w").write(out.stdout + out.stderr)
+json.dump({{"preview": out.stdout + out.stderr, "env": dict(os.environ)}}, open(os.environ["RECORD"], "w"))
 print(line)
-""")
-    fake_fzf.chmod(fake_fzf.stat().st_mode | stat.S_IEXEC)
-    return root, bin_dir
+"""
 
 
-def test_selecting_second_duplicate_uses_its_own_secret(tmp_path):
-    root, bin_dir = make_copy(tmp_path)
-    preview_out = tmp_path / "preview.txt"
+@pytest.fixture
+def app(tmp_path):
+    home = tmp_path / "config"
+    Vault(str(home / "secrets.enc"), PASSPHRASE).save(ACCOUNTS)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    fzf = bin_dir / "fzf"
+    fzf.write_text(FAKE_FZF.format(python=sys.executable))
+    fzf.chmod(fzf.stat().st_mode | stat.S_IEXEC)
+    record = tmp_path / "record.json"
     env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
-               PICK="1", PREVIEW_OUT=str(preview_out))
+               TOTP_CLI_HOME=str(home), TOTP_CLI_PASSPHRASE=PASSPHRASE, RECORD=str(record))
 
-    result = subprocess.run(
-        [sys.executable, str(root / "src" / "app.py"), "work"],
-        capture_output=True, text=True, env=env,
-    )
+    def run(*argv, pick):
+        result = subprocess.run([sys.executable, os.path.join(SRC, "app.py"), *argv],
+                                capture_output=True, text=True, env=dict(env, PICK=str(pick)))
+        return result, json.loads(record.read_text())
+
+    return run
+
+
+def test_selecting_second_duplicate_uses_its_own_secret(app):
+    result, record = app("work", "--no-copy", pick=1)
 
     expected = pyotp.TOTP(ACCOUNTS[2]["secret"]).now()
-    other = pyotp.TOTP(ACCOUNTS[1]["secret"]).now()
-    assert expected != other
+    assert expected != pyotp.TOTP(ACCOUNTS[1]["secret"]).now()
     assert result.returncode == 0, result.stdout + result.stderr
     assert f"OTP code for Work (me): {expected}" in result.stdout
-    assert expected in preview_out.read_text()
+    assert expected in record["preview"]
 
+
+def test_fzf_and_preview_never_see_passphrase_or_secrets(app):
+    _, record = app("work", "--no-copy", pick=0)
+    env_dump = json.dumps(record["env"])
+    assert "TOTP_CLI_PASSPHRASE" not in record["env"]
+    assert PASSPHRASE not in env_dump
+    for acc in ACCOUNTS:
+        assert acc["secret"] not in env_dump
+    assert "TOTP_CLI_PREVIEW" in record["env"]
+
+
+# --- preview script ---------------------------------------------------------------
+
+def test_preview_picks_code_for_current_window():
+    data = preview_codes([(5, ACCOUNTS[0])], now=1000)
+    env = {"TOTP_CLI_PREVIEW": json.dumps(data)}
+    totp = pyotp.TOTP(ACCOUNTS[0]["secret"])
+    for now in (1000, 1031, 1500):
+        out = preview.main(["preview.py", "5"], env, now)
+        assert totp.at(now) in out
+    assert "Expires in:" in preview.main(["preview.py", "5"], env, 1000)
+
+
+def test_preview_after_codes_run_out():
+    data = preview_codes([(0, ACCOUNTS[0])], now=1000)
+    env = {"TOTP_CLI_PREVIEW": json.dumps(data)}
+    assert "expired" in preview.main(["preview.py", "0"], env, 1000 + 20 * 30 + 1)
+
+
+@pytest.mark.parametrize("argv, env", [(["p"], {}), (["p", "9"], None), (["p", "0"], {"TOTP_CLI_PREVIEW": "junk"})])
+def test_preview_handles_missing_data(argv, env):
+    if env is None:
+        env = {"TOTP_CLI_PREVIEW": json.dumps(preview_codes([(0, ACCOUNTS[0])], now=0))}
+    assert preview.main(argv, env, 0) == ""
+
+
+# --- real fzf ---------------------------------------------------------------------
 
 @pytest.mark.skipif(shutil.which("fzf") is None, reason="fzf not installed")
 @pytest.mark.parametrize("query, expected", [
@@ -80,8 +113,9 @@ def test_selecting_second_duplicate_uses_its_own_secret(tmp_path):
     ("2", []),  # the hidden index must not be searchable
 ])
 def test_real_fzf_searches_labels_and_returns_index(query, expected):
-    args = [a for a in fzf_args("python", "preview.py") if not a.startswith("--preview")]
-    args.remove("python preview.py {1}")
+    args = fzf_args("python", "preview.py")
+    i = args.index("--preview")
+    del args[i:i + 2]
     lines = "0\tGitHub (me)\n1\tWork (me)\n2\tWork (me)\n"
     result = subprocess.run(args + [f"--filter={query}"], input=lines, capture_output=True, text=True)
     assert result.stdout.splitlines() == expected

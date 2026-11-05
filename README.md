@@ -10,16 +10,16 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 - Search by issuer or account name
 - Auto-copy OTP to clipboard
 - Preview OTP with color-coded expiration
-- JSON-based secret storage
-- Backup and restore support
-- Terminal tab renaming
+- Secrets encrypted at rest with your passphrase (scrypt + AES-256-GCM)
+- Runs as your normal user, no `sudo`
+- Encrypted backups, restore and passphrase change
 - Import from Google Authenticator QR (via image)
 
 ## 📦 Requirements
 
 - Python 3.9+
 - `fzf` installed and available in `$PATH`
-- Python packages listed in `requirements.txt`
+- Python packages listed in `src/requirements.txt`
 - A virtual environment (recommended)
 
 ## 🔧 Setup
@@ -52,83 +52,79 @@ If `fzf` is installed but not found by the script, you can set its path manually
 export FZF_PATH=$(dirname $(which fzf))
 ```
 
+Create an alias in your shell (bash/zsh):
 
-## 📁 File Structure
+```bash
+alias otpcli='~/totp-cli/env/bin/python ~/totp-cli/src/app.py'
+```
 
+Then add your accounts:
+
+```bash
+otpcli import
 ```
-totp-cli/
-├── env/                         # Python virtual environment
-├── json/
-│   ├── secrets.json             # Your TOTP secret file
-│   └── backups/                 # Backup files
-├── src/
-│   ├── app.py                   # Main CLI entrypoint
-│   ├── monitor.py               # Live TOTP code viewer
-│   └── utils/                   # All internal modules
-│       ├── preview.py           # Preview shown in fzf
-│       ├── utils.py             # General utility functions
-│       ├── commands.py          # Command handlers
-│       └── protobuf/            # Google Authenticator QR importer
-│           ├── extract_google_otp_from_qr.py
-│           ├── migration_pb2.py
-│           └── migration.proto
-├── README.md
-└── requirements.txt
-```
+
+The first time, you choose a passphrase. It encrypts your secrets and is asked for on every run. **If you forget it, the secrets cannot be recovered**, so keep your Google Authenticator export (or another copy) somewhere safe.
+
+## ⬆️ Upgrading from the sudo version
+
+Earlier versions ran with `sudo` and kept unencrypted secrets in `json/secrets.json`. To move them:
+
+1. Remove `sudo` from your alias (see above). otpcli now refuses to run as root.
+2. Run, as your normal user:
+   ```bash
+   otpcli migrate
+   ```
+   It reads the old root-owned file with `sudo cat` (the only step that needs sudo), asks you for a new passphrase, saves the encrypted secrets to `~/.config/totp-cli/`, and offers to delete the old plaintext `json/secrets.json` and `json/backups/`.
 
 ## 🧪 Usage
 
-```bash
-# Run the OTP menu
-sudo ./env/bin/python ./src/app.py
+```
+otpcli                            Pick an account with fzf and copy its code
+otpcli <words...>                 Copy the code if exactly one account matches all words
+otpcli get <words...> [--no-copy] Same, explicitly (use it for words like "list")
+
+otpcli list                       Print all account labels
+otpcli stats                      Show account counts per issuer
+otpcli watch                      Show all codes, refreshing every second
+otpcli edit [--backup] [--editor CMD]
+                                  Edit the decrypted accounts in your editor
+otpcli import                     Import from a Google Authenticator export
+otpcli passwd                     Change the passphrase
+otpcli migrate [--yes]            Move secrets from the old sudo version
+
+otpcli backup                     Create a backup (same as: backup create)
+otpcli backup list                Show available backups
+otpcli backup remove <NAMES...>   Delete backups
+otpcli backup remove --all        Delete all backups (asks first)
+otpcli backup restore <NAME>      Restore a backup (current secrets are backed up first)
+
+otpcli -h | otpcli <command> -h   Help
 ```
 
-Or create an alias in your shell (bash/zsh):
+The old flags (`--list`, `--stats`, `--edit`, `--backup`, `--restore`, `--initialize`…) still work and print the new form of the command.
 
-```bash
-alias otpcli='sudo ~/totp-cli/env/bin/python ~/totp-cli/src/app.py'
-```
+### Importing
 
-To import OTP secrets from Google Authenticator, you can use:
+`otpcli import` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full. Importing adds to your existing accounts (after a backup) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.
 
-```bash
-otpcli --initialize
-```
+### Editing
 
-If you don't already have the migration string, the script will let you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) using `zbarimg`.  
-The OTP secrets will be imported automatically and securely saved.
-
-## 🛠️ Command Line Options
-
-```
-otpcli                            Interactive menu with all OTP accounts
-otpcli <keyword>                  Filter accounts by keyword(s), auto-copy if exactly one match
-
---help, -h                        Show this help message
---initialize                      Run the setup to import OTP from Google Authenticator
---list                            Print all account labels
---stats                           Show stats per issuer
---edit                            Open the JSON file in default editor
---edit --backup                   Backup file before editing
---edit --editor=<CMD>             Use specific editor (e.g. --editor=vim)
---backup                          Create a manual backup
---backup --remove <FILES...>      Delete one or more backup files
---backup --remove-all             Delete all backup files (with confirmation)
---list-backups                    Show available backup files
---restore <FILENAME>              Restore a specific backup
-```
+`otpcli edit` decrypts your accounts into a temporary file (inside `~/.config/totp-cli/`, readable only by you), opens your editor, checks the result and re-encrypts it. The temporary file is deleted afterwards. If the edited file isn't valid, you can fix it or discard the changes.
 
 ## 🧾 Example Output
 
 ```
 $ otpcli github
+Passphrase:
 
 OTP code for GitHub (you@example.com): 123456
 Valid for another 17 seconds (copied to clipboard)
 ```
 
 ```
-$ otpcli --stats
+$ otpcli stats
+Passphrase:
 
 TOTP CLI - Account Stats
 
@@ -141,9 +137,20 @@ Unique issuers: 4
   Bitwarden           -> 1
 ```
 
-## 🔐 OTP Storage Format
+## 🔐 Storage
 
-All OTP secrets are stored in `json/secrets.json` as a list of dicts:
+Everything lives in `~/.config/totp-cli/` (or `$XDG_CONFIG_HOME/totp-cli/`, or the folder in `$TOTP_CLI_HOME`):
+
+```
+~/.config/totp-cli/
+├── secrets.enc                  # Encrypted accounts
+└── backups/
+    └── secrets.enc.bak.YYYY-MM-DD_HH-MM-SS
+```
+
+`secrets.enc` is encrypted with AES-256-GCM using a key derived from your passphrase with scrypt. The folder is readable only by you (`700`), the files too (`600`).
+
+Decrypted (as shown by `otpcli edit`), the accounts are a JSON list:
 
 ```json
 [
@@ -165,24 +172,60 @@ All OTP secrets are stored in `json/secrets.json` as a list of dicts:
 | `algorithm` | no | `SHA1`, `SHA256`, `SHA512`, `MD5` | `SHA1` |
 | `digits` | no | `6`, `8` | `6` |
 
-Codes refresh every 30 seconds. Files written before `algorithm` and `digits` were stored keep working with the defaults.
+Codes refresh every 30 seconds.
 
-You can import secrets from a Google Authenticator QR code using the `--initialize` command. Importing adds to your existing accounts (after backing up the file) and skips accounts you already have. Counter-based (HOTP) accounts are not supported and are skipped with a warning.
+### The fzf preview
+
+The preview runs as a separate process, so it can't ask for your passphrase. otpcli hands it only the upcoming codes (10 minutes' worth) through an environment variable, which only your user can read. It never gets your secrets or passphrase. If the picker stays open longer, the preview asks you to reopen otpcli.
+
+### Scripting
+
+Set `TOTP_CLI_PASSPHRASE` to skip the prompt, e.g. in a script. Anything running as your user can read a process's environment, so only use it where that's acceptable.
 
 ## 🧯 Backup and Restore
 
-- Backups are stored in `json/backups/`
-- File format: `secrets.json.bak.YYYY-MM-DD_HH-MM-SS`
+- Backups are encrypted copies, kept in `~/.config/totp-cli/backups/`
+- `import`, `edit --backup`, `passwd` and `backup restore` back up automatically before changing anything
+- Backups keep the passphrase they were made with. Restoring one made before `otpcli passwd` asks for that older passphrase and re-encrypts it with the current one.
 
-To restore:
 ```bash
-otpcli --restore secrets.json.bak.2025-04-18_23-30-00
+otpcli backup list
+otpcli backup restore secrets.enc.bak.2025-04-18_23-30-00
+```
+
+## 🧪 Tests
+
+```bash
+env/bin/python -m pytest tests
+```
+
+## 📁 File Structure
+
+```
+totp-cli/
+├── env/                         # Python virtual environment
+├── src/
+│   ├── app.py                   # Main CLI entrypoint
+│   ├── monitor.py               # Same as "otpcli watch"
+│   ├── requirements.txt
+│   └── utils/
+│       ├── cli.py               # Argument parsing, old-flag translation
+│       ├── commands.py          # Command handlers
+│       ├── vault.py             # Encrypted storage
+│       ├── utils.py             # OTP generation, backups, helpers
+│       ├── preview.py           # Preview shown in fzf
+│       └── protobuf/            # Google Authenticator QR importer
+│           ├── extract_google_otp_from_qr.py
+│           ├── migration_pb2.py
+│           └── migration.proto
+├── tests/
+└── README.md
 ```
 
 ## 📌 Credits
 
 This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
-Make sure it is installed to use `--initialize` with QR import.
+Make sure it is installed to use `otpcli import` with QR images.
 
 
 ## 💙 License
