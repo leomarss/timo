@@ -64,15 +64,12 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
         sys.exit(0)
 
     if "--edit" in argv:
-        editor = None
-        for arg in argv:
-            if arg.startswith("--editor="):
-                editor = arg.split("=", 1)[1]
-                break
-            if arg == "--backup":
-                path = create_backup(json_path, backup_dir)
-                rel_path = os.path.relpath(path, start=os.path.dirname(script_dir))
-                print(f"Backup saved to: {rel_path}")
+        editor = next((arg.split("=", 1)[1] for arg in argv if arg.startswith("--editor=")), None)
+
+        if "--backup" in argv:
+            path = create_backup(json_path, backup_dir)
+            rel_path = os.path.relpath(path, start=os.path.dirname(script_dir))
+            print(f"Backup saved to: {rel_path}")
 
         if not editor:
             editor = os.environ.get("EDITOR")
@@ -86,6 +83,7 @@ def handle_commands(argv, accounts, json_path, backup_dir, script_dir):
                 print("No suitable editor found.")
                 sys.exit(1)
 
+        sys.stdout.flush()  # execvp replaces the process; unflushed output would be lost
         os.execvp(editor, [editor, json_path])
         
     if "--backup" in argv:
