@@ -49,11 +49,11 @@ Type a word, get the code on your clipboard. No phone, no app switching. Pick fr
 ## Install
 
 ```bash
-brew install pipx fzf               # Debian/Ubuntu: sudo apt install pipx fzf
+brew install pipx fzf                     # Debian/Ubuntu: sudo apt install pipx fzf
 pipx install timo-otp
 
 # Optional: scan QR codes from images and with the webcam
-brew install zbar                   # Debian/Ubuntu: sudo apt install zbar-tools
+brew install zbar                         # Debian/Ubuntu: sudo apt install zbar-tools
 pipx install --force 'timo-otp[webcam]'   # reinstalls timo with webcam support
 ```
 
