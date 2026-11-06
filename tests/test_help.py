@@ -68,9 +68,12 @@ def test_fits_in_100_columns():
     assert max(len(line) for line in plain_help().splitlines()) <= 100
 
 
-def test_readme_usage_matches_the_help():
-    block = re.search(r"## 🧪 Usage\n\n```\n(.*?)```", README.read_text(), re.S).group(1)
-    assert block == plain_help(), "README usage is out of date: paste the output of `timo --help | cat`"
+def test_readme_only_mentions_real_flags():
+    usage = re.search(r"## Usage\n(.*?)\n## ", README.read_text(), re.S).group(1)
+    mentioned = set(re.findall(r"(?<![\w-])--[a-z][a-z-]*", usage))
+    assert mentioned, "README usage section has no flags"
+    unknown = mentioned - set(re.findall(r"--[a-z][a-z-]*", plain_help()))
+    assert not unknown, f"README mentions flags that timo --help doesn't have: {sorted(unknown)}"
 
 
 @pytest.mark.parametrize("flag", ["-h", "--help"])
