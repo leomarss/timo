@@ -13,16 +13,14 @@ concurrency:
 
 jobs:
   test:
-    name: ${{ matrix.os }} · Python ${{ matrix.python }}
-    runs-on: ${{ matrix.os }}
+    name: Python ${{ matrix.python }}
+    # ubuntu-24.04: GitHub has no Python 3.9 build for newer Ubuntu.
+    # No macOS: its runners often wait hours for a machine on the free plan.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        # ubuntu-24.04: GitHub has no Python 3.9 build for newer Ubuntu
-        # macos-15: macos-latest (macOS 26) jobs often wait hours for a runner,
-        #   see https://github.com/orgs/community/discussions/211885
-        os: [ubuntu-24.04, macos-15]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
@@ -31,9 +29,7 @@ jobs:
           python-version: ${{ matrix.python }}
           allow-prereleases: true
       - name: Install fzf
-        run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update -q && sudo apt-get install -yq fzf
-          else brew install fzf; fi
+        run: sudo apt-get update -q && sudo apt-get install -yq fzf
       - run: pip install '.[dev,webcam]'
       # a test stuck for 2 minutes prints where it is stuck
       - run: python -m pytest -q -o faulthandler_timeout=120
