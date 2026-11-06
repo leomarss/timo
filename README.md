@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="assets/icon.png" width="128" height="128" alt="timo icon: a padlock on a blue shield above a six-digit code">
+  <img src="assets/banner.png" width="100%" alt="timo: encrypted at rest, no phone needed, no network. Fast, encrypted, import from Google Authenticator or any QR, export to any other app">
 </p>
-
-<h1 align="center">timo</h1>
 
 <p align="center">
   <b>Your authenticator app, in the terminal, one word away.</b><br>
@@ -34,11 +32,6 @@ $ timo github
 <br>
 
 Type a word, get the code on your clipboard. No phone, no app switching. Pick from a fuzzy list with `fzf` when you're not sure, import everything from Google Authenticator in one go, and take it all with you when you leave.
-
-- **Fast**: one word copies the code, clipboard cleared after 45s
-- **Encrypted**: scrypt + AES-256-GCM, passphrase in your OS keychain
-- **Import**: Google Authenticator export or any 2FA setup QR, via image, webcam or link
-- **Portable**: export as setup QR codes or `otpauth://` links to any other app
 
 <br>
 
