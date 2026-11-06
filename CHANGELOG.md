@@ -4,6 +4,13 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-06
+
+### Changed
+
+- The README demo shows copying a code with one word, picking one with fzf, and adding an account.
+- The README's Python badge reads "3.9+" instead of listing every version.
+
 ## [2.0.0] - 2026-11-06
 
 ### Changed
@@ -71,7 +78,8 @@ First release as timo (Time-based Identity Manager for OTPs), previously `totp-c
 - Crash-safe writes for secrets and backups.
 - The `fzf` preview works with paths that contain spaces.
 
-[Unreleased]: https://github.com/leomarss/timo/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/leomarss/timo/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/leomarss/timo/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/leomarss/timo/compare/v1.0.3...v2.0.0
 [1.0.3]: https://github.com/leomarss/timo/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/leomarss/timo/compare/v1.0.1...v1.0.2
