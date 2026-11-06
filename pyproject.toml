@@ -4,11 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "timo-otp"
-description = "timo (Time-based Identity Manager for OTPs): your authenticator app, in the terminal, one word away"
+description = "Your authenticator app, in the terminal, one word away: an encrypted TOTP manager with fzf, QR import and export"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.9"
+authors = [{ name = "Leonardo Martignoni" }]
+keywords = ["2fa", "totp", "otp", "authenticator", "cli", "terminal", "fzf", "google-authenticator"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Security",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Utilities",
+]
 dynamic = ["version"]
 dependencies = [
     "cryptography>=42",
@@ -28,6 +41,8 @@ timo = "timo.cli:main"
 
 [project.urls]
 Source = "https://github.com/leomarss/timo"
+Issues = "https://github.com/leomarss/timo/issues"
+Changelog = "https://github.com/leomarss/timo/blob/main/CHANGELOG.md"
 
 [tool.setuptools.dynamic]
 version = {attr = "timo.__version__"}

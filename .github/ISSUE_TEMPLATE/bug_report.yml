@@ -1,0 +1,39 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste real secrets, QR codes or `otpauth://` links here. For security problems, see [SECURITY.md](https://github.com/leomarss/timo/blob/main/SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got instead.
+      placeholder: |
+        $ timo github
+        ✗ ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. timo --add
+        2. ...
+  - type: input
+    id: version
+    attributes:
+      label: timo version
+      description: Output of `timo --version`
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and terminal
+      placeholder: macOS 15, Ghostty
+    validations:
+      required: true
