@@ -20,7 +20,9 @@ jobs:
       fail-fast: false
       matrix:
         # ubuntu-24.04: GitHub has no Python 3.9 build for newer Ubuntu
-        os: [ubuntu-24.04, macos-latest]
+        # macos-15: macos-latest (macOS 26) jobs often wait hours for a runner,
+        #   see https://github.com/orgs/community/discussions/211885
+        os: [ubuntu-24.04, macos-15]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
