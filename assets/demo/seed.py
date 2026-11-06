@@ -12,13 +12,11 @@ from timo.vault import Vault
 
 ACCOUNTS = [
     ("GitHub", "you@example.com"),
-    ("GitHub", "work@example.com"),
     ("Google", "you@gmail.com"),
     ("AWS", "root"),
     ("Bitwarden", "you@example.com"),
     ("Cloudflare", "you@example.com"),
     ("Discord", "you#0001"),
-    ("Proton", "you@proton.me"),
 ]
 
 home, passphrase = sys.argv[1], sys.argv[2]
@@ -27,4 +25,5 @@ accounts = [
     dict(issuer=issuer, name=name, secret=pyotp.random_base32(), algorithm="SHA1", digits=6, date_added=now)
     for issuer, name in ACCOUNTS
 ]
+os.makedirs(home, mode=0o700, exist_ok=True)
 Vault(os.path.join(home, "secrets.enc"), passphrase).save(accounts)

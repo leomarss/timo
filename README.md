@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://github.com/leomarss/timo/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/leomarss/timo/tests.yml?branch=main&label=tests&style=flat-square&labelColor=0f1626"></a>
   <a href="https://pypi.org/project/timo-otp/"><img alt="PyPI" src="https://img.shields.io/pypi/v/timo-otp?label=pypi&color=4f8cff&style=flat-square&labelColor=0f1626"></a>
-  <a href="https://pypi.org/project/timo-otp/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/timo-otp?logo=python&logoColor=white&color=4f8cff&style=flat-square&labelColor=0f1626"></a>
+  <a href="https://pypi.org/project/timo-otp/"><img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-4f8cff?logo=python&logoColor=white&style=flat-square&labelColor=0f1626"></a>
   <img alt="macOS · Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux-supported-4f8cff?style=flat-square&labelColor=0f1626">
   <a href="https://github.com/leomarss/timo/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-4f8cff?style=flat-square&labelColor=0f1626"></a>
 </p>
@@ -32,7 +32,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/leomarss/timo/main/assets/demo-light.gif">
-    <img src="https://raw.githubusercontent.com/leomarss/timo/main/assets/demo.gif" width="100%" alt="timo google copies a code, then timo opens the fzf picker to find and copy Cloudflare">
+    <img src="https://raw.githubusercontent.com/leomarss/timo/main/assets/demo.gif" width="100%" alt="timo github copies a code, timo opens the fzf picker to find and copy Cloudflare, then timo --add adds Proton from its secret key">
   </picture>
 </p>
 
