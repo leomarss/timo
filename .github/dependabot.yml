@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # Python dependencies in pyproject.toml
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    groups:
+      # one pull request for all minor and patch updates, one per major update
+      python-minor-and-patch:
+        update-types: [minor, patch]
+
+  # actions used in .github/workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]
