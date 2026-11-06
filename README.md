@@ -1,7 +1,7 @@
 <h1 align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="assets/banner-light.png">
-    <img src="assets/banner.png" width="100%" alt="timo: encrypted at rest, no phone needed, no network. Fast, encrypted, import from Google Authenticator or any QR, export to any other app">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/leomarss/timo/main/assets/banner-light.png">
+    <img src="https://raw.githubusercontent.com/leomarss/timo/main/assets/banner.png" width="100%" alt="timo: encrypted at rest, no phone needed, no network. Fast, encrypted, import from Google Authenticator or any QR, export to any other app">
   </picture>
 </h1>
 
@@ -13,8 +13,8 @@
 <p align="center">
   <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-4f8cff?style=flat-square&logo=python&logoColor=white&labelColor=0f1626">
   <img alt="macOS · Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux-supported-4f8cff?style=flat-square&labelColor=0f1626">
-  <a href="https://github.com/leomarss/timo/releases"><img alt="Release" src="https://img.shields.io/github/v/tag/leomarss/timo?style=flat-square&color=4f8cff&labelColor=0f1626&label=release"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-4f8cff?style=flat-square&labelColor=0f1626"></a>
+  <a href="https://github.com/leomarss/timo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/leomarss/timo?style=flat-square&color=4f8cff&labelColor=0f1626&label=release"></a>
+  <a href="https://github.com/leomarss/timo/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-4f8cff?style=flat-square&labelColor=0f1626"></a>
 </p>
 
 <p align="center">
@@ -30,8 +30,8 @@
 ## Demo
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="assets/demo-light.gif">
-    <img src="assets/demo.gif" width="100%" alt="timo google copies a code, then timo opens the fzf picker to find and copy Cloudflare">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/leomarss/timo/main/assets/demo-light.gif">
+    <img src="https://raw.githubusercontent.com/leomarss/timo/main/assets/demo.gif" width="100%" alt="timo google copies a code, then timo opens the fzf picker to find and copy Cloudflare">
   </picture>
 </p>
 
@@ -50,7 +50,7 @@ Type a word, get the code on your clipboard. No phone, no app switching. Pick fr
 
 ```bash
 brew install pipx fzf               # Debian/Ubuntu: sudo apt install pipx fzf
-pipx install git+https://github.com/leomarss/timo.git
+pipx install timo-otp
 
 # Optional: scan QR codes from images and with the webcam
 brew install zbar                   # Debian/Ubuntu: sudo apt install zbar-tools
@@ -105,7 +105,7 @@ env/bin/pip install -e '.[dev]'
 env/bin/python -m pytest
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and [SECURITY.md](SECURITY.md) to report a vulnerability.
+See [CONTRIBUTING.md](https://github.com/leomarss/timo/blob/main/CONTRIBUTING.md) before opening a pull request, and [SECURITY.md](https://github.com/leomarss/timo/blob/main/SECURITY.md) to report a vulnerability.
 
 <br>
 

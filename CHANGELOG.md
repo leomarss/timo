@@ -4,14 +4,18 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
-### Changed
-
-- New README with the timo banner, a shorter layout and badges in the banner's colours.
-- Package description, keywords and classifiers in `pyproject.toml`.
+## [1.0.1] - 2026-11-06
 
 ### Added
 
+- Published on PyPI: `pipx install timo-otp`.
+- Demo GIF and banner, each in light and dark mode.
 - `CHANGELOG.md`, `CONTRIBUTING.md`, `SECURITY.md` and issue templates.
+
+### Changed
+
+- New README with a shorter layout and badges in the banner's colours.
+- Package description, keywords and classifiers in `pyproject.toml`.
 
 ## [1.0.0] - 2026-11-06
 
@@ -37,5 +41,6 @@ First release as timo (Time-based Identity Manager for OTPs), previously `totp-c
 - Crash-safe writes for secrets and backups.
 - The `fzf` preview works with paths that contain spaces.
 
-[Unreleased]: https://github.com/leomarss/timo/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/leomarss/timo/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/leomarss/timo/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/leomarss/timo/releases/tag/v1.0.0
