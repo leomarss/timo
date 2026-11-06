@@ -18,6 +18,8 @@
   <a href="#development">Development</a>
 </p>
 
+<br>
+
 ```
 $ timo github
 ╭─ GitHub (you@example.com) ────────────────────╮
@@ -25,12 +27,16 @@ $ timo github
 ╰───────────────────────────────────────────────╯
 ```
 
+<br>
+
 Type a word, get the code on your clipboard. No phone, no app switching. Pick from a fuzzy list with `fzf` when you're not sure, import everything from Google Authenticator in one go, and take it all with you when you leave.
 
 - **Fast**: one word copies the code, clipboard cleared after 45s
 - **Encrypted**: scrypt + AES-256-GCM, passphrase in your OS keychain
 - **Import**: Google Authenticator export or any 2FA setup QR, via image, webcam or link
 - **Portable**: export as setup QR codes or `otpauth://` links to any other app
+
+<br>
 
 ## Install
 
@@ -44,6 +50,8 @@ pipx inject timo-otp av zxing-cpp
 ```
 
 Update with `pipx upgrade timo-otp`.
+
+<br>
 
 ## Usage
 
@@ -69,6 +77,8 @@ Run `timo --help` for the full list. Plain words are always a search, so an acco
 > [!WARNING]
 > Your passphrase encrypts everything. **If you forget it, the secrets cannot be recovered**, so keep your original export somewhere safe.
 
+<br>
+
 ## Security
 
 - 🗝️ Secrets live in `~/.config/timo/secrets.enc` (override with `TIMO_HOME`), with `700`/`600` permissions and crash-safe writes.
@@ -77,6 +87,8 @@ Run `timo --help` for the full list. Plain words are always a search, so an acco
 - Exported `otpauth://` links are **not** encrypted: delete them once imported.
 - No `sudo`, no network.
 
+<br>
+
 ## Development
 
 ```bash
@@ -84,6 +96,8 @@ python3 -m venv env
 env/bin/pip install -e '.[dev]'
 env/bin/python -m pytest
 ```
+
+<br>
 
 ## License
 
