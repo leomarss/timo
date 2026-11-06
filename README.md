@@ -1,5 +1,8 @@
 <h1 align="center">
-  <img src="assets/banner.png" width="100%" alt="timo: encrypted at rest, no phone needed, no network. Fast, encrypted, import from Google Authenticator or any QR, export to any other app">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="assets/banner-light.png">
+    <img src="assets/banner.png" width="100%" alt="timo: encrypted at rest, no phone needed, no network. Fast, encrypted, import from Google Authenticator or any QR, export to any other app">
+  </picture>
 </h1>
 
 <p align="center">
@@ -26,7 +29,10 @@
 
 ## Demo
 <p align="center">
-  <img src="assets/demo.gif" width="100%" alt="timo google copies a code, then timo opens the fzf picker to find and copy Cloudflare">
+  <picture>
+    <source media="(prefers-color-scheme: light)" srcset="assets/demo-light.gif">
+    <img src="assets/demo.gif" width="100%" alt="timo google copies a code, then timo opens the fzf picker to find and copy Cloudflare">
+  </picture>
 </p>
 
 <br>
