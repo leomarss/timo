@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/icon.png" width="128" height="128" alt="timo icon: a padlock on a blue shield above a six-digit code">
+</p>
+
 <h1 align="center">timo</h1>
 
 <p align="center">
