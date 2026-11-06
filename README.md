@@ -15,6 +15,7 @@
 </p>
 
 <p align="center">
+  <a href="#demo">Demo</a> ·
   <a href="#install">Install</a> ·
   <a href="#usage">Usage</a> ·
   <a href="#security">Security</a> ·
@@ -23,6 +24,7 @@
 
 <br>
 
+## Demo
 <p align="center">
   <img src="assets/demo.gif" width="100%" alt="timo google copies a code, then timo opens the fzf picker to find and copy Cloudflare">
 </p>
