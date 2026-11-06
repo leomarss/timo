@@ -1,6 +1,7 @@
 import io
 import os
 import pty
+import termios
 import threading
 import time
 import types
@@ -24,14 +25,28 @@ def keyboard(monkeypatch):
     monkeypatch.setattr(ui, "sys", types.SimpleNamespace(stdin=stdin, stdout=stdout, stderr=FakeTTY()))
     monkeypatch.setenv("NO_COLOR", "1")
 
+    # confirm() throws away keys typed before its question: type only once it has,
+    # or on a slow machine the keys are thrown away too and confirm() waits forever
+    flushed = threading.Event()
+    real_tcflush = termios.tcflush
+
+    def tcflush(fd, queue):
+        real_tcflush(fd, queue)
+        flushed.set()
+
+    monkeypatch.setattr(termios, "tcflush", tcflush)
+
     class Keyboard:
         out = stdout
 
         def ask(self, *keys, default=False, early=b""):
             os.write(master, early)  # typed before the question appeared
+            flushed.clear()
 
             def type_keys():
-                time.sleep(0.15)  # after confirm() has flushed and started reading
+                if not flushed.wait(timeout=10):
+                    os.write(master, b"\x04")  # Ctrl-D: the test fails with EOFError instead of hanging
+                    return
                 for key in keys:
                     os.write(master, key)
                     time.sleep(0.08)
