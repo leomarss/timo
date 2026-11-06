@@ -6,18 +6,25 @@ on:
   pull_request:
   workflow_dispatch:
 
+# a new push cancels the run still going for the same branch
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: ${{ matrix.os }} · Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # ubuntu-24.04: GitHub has no Python 3.9 build for newer Ubuntu
+        os: [ubuntu-24.04, macos-latest]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           allow-prereleases: true
@@ -26,4 +33,5 @@ jobs:
           if [ "$RUNNER_OS" = "Linux" ]; then sudo apt-get update -q && sudo apt-get install -yq fzf
           else brew install fzf; fi
       - run: pip install '.[dev,webcam]'
-      - run: python -m pytest -q
+      # a test stuck for 2 minutes prints where it is stuck
+      - run: python -m pytest -q -o faulthandler_timeout=120
