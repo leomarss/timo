@@ -30,3 +30,12 @@ TIMO_HOME=/tmp/timo-dev env/bin/timo --add
 ## Security
 
 Never put real secrets, QR codes or `otpauth://` links in issues, tests or screenshots. To report a vulnerability, see [SECURITY.md](SECURITY.md) instead of opening a public issue.
+
+## Demo GIFs
+
+The README GIFs are recorded with [vhs](https://github.com/charmbracelet/vhs) on a throwaway vault with fake accounts. After a change to timo's output, record both again:
+
+```bash
+brew install vhs
+assets/demo/record.sh
+```
