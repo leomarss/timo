@@ -1,6 +1,6 @@
-<p align="center">
+<h1 align="center">
   <img src="assets/banner.png" width="100%" alt="timo: encrypted at rest, no phone needed, no network. Fast, encrypted, import from Google Authenticator or any QR, export to any other app">
-</p>
+</h1>
 
 <p align="center">
   <b>Your authenticator app, in the terminal, one word away.</b><br>
