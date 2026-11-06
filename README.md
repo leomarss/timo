@@ -23,12 +23,9 @@
 
 <br>
 
-```
-$ timo github
-╭─ GitHub (you@example.com) ────────────────────╮
-│  482 913   17s left · copied, clears in 45s   │
-╰───────────────────────────────────────────────╯
-```
+<p align="center">
+  <img src="assets/demo.gif" width="100%" alt="timo google copies a code, then timo opens the fzf picker to find and copy Cloudflare">
+</p>
 
 <br>
 
