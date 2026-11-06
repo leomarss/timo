@@ -11,9 +11,10 @@
 </p>
 
 <p align="center">
-  <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-4f8cff?style=flat-square&logo=python&logoColor=white&labelColor=0f1626">
+  <a href="https://github.com/leomarss/timo/actions/workflows/tests.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/leomarss/timo/tests.yml?branch=main&label=tests&style=flat-square&labelColor=0f1626"></a>
+  <a href="https://pypi.org/project/timo-otp/"><img alt="PyPI" src="https://img.shields.io/pypi/v/timo-otp?label=pypi&color=4f8cff&style=flat-square&labelColor=0f1626"></a>
+  <a href="https://pypi.org/project/timo-otp/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/timo-otp?logo=python&logoColor=white&color=4f8cff&style=flat-square&labelColor=0f1626"></a>
   <img alt="macOS · Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux-supported-4f8cff?style=flat-square&labelColor=0f1626">
-  <a href="https://github.com/leomarss/timo/releases"><img alt="Release" src="https://img.shields.io/github/v/release/leomarss/timo?style=flat-square&color=4f8cff&labelColor=0f1626&label=release"></a>
   <a href="https://github.com/leomarss/timo/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-4f8cff?style=flat-square&labelColor=0f1626"></a>
 </p>
 
