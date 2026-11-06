@@ -54,7 +54,7 @@ pipx install timo-otp
 
 # Optional: scan QR codes from images and with the webcam
 brew install zbar                   # Debian/Ubuntu: sudo apt install zbar-tools
-pipx inject timo-otp av zxing-cpp
+pipx install --force 'timo-otp[webcam]'   # reinstalls timo with webcam support
 ```
 
 Update with `pipx upgrade timo-otp`.
