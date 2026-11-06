@@ -34,7 +34,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
-webcam = ["av>=14", "zxing-cpp>=2.3"]
+webcam = [
+    "av>=14",
+    # zxing-cpp 3.x has no Python 3.9 builds, so 3.9 stays on 2.x
+    "zxing-cpp>=2.3,<3; python_version < '3.10'",
+    "zxing-cpp>=2.3; python_version >= '3.10'",
+]
 
 [project.scripts]
 timo = "timo.cli:main"

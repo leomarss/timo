@@ -89,7 +89,7 @@ Run `timo --help` for the full list. Plain words are always a search, so an acco
 
 ## Security
 
-- 🗝️ Secrets live in `~/.config/timo/secrets.enc` (override with `TIMO_HOME`), with `700`/`600` permissions and crash-safe writes.
+- Secrets live in `~/.config/timo/secrets.enc` (override with `TIMO_HOME`), with `700`/`600` permissions and crash-safe writes.
 - The `fzf` preview never sees your secrets or passphrase, only the next 10 minutes of codes.
 - `--edit` temp files are deleted, webcam frames stay in memory, and export QR codes are cleared from scrollback.
 - Exported `otpauth://` links are **not** encrypted: delete them once imported.
