@@ -4,6 +4,8 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-06
+
 ### Changed
 
 - `--edit` is guided: pick an account (`timo --edit github` narrows the list), then it asks for the issuer, name and secret key in turn. Each value comes already typed in, so you fix it with the arrow keys and Enter keeps it, and it's checked as soon as you type it. No editor and no decrypted temp file anymore.
@@ -69,7 +71,8 @@ First release as timo (Time-based Identity Manager for OTPs), previously `totp-c
 - Crash-safe writes for secrets and backups.
 - The `fzf` preview works with paths that contain spaces.
 
-[Unreleased]: https://github.com/leomarss/timo/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/leomarss/timo/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/leomarss/timo/compare/v1.0.3...v2.0.0
 [1.0.3]: https://github.com/leomarss/timo/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/leomarss/timo/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/leomarss/timo/compare/v1.0.0...v1.0.1
