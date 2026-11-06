@@ -1,162 +1,22 @@
-# timo
+<h1 align="center">timo</h1>
 
-**Your authenticator app, in the terminal, one word away.**
+<p align="center">
+  <b>Your authenticator app, in the terminal, one word away.</b><br>
+  <sub><i>Time-based Identity Manager for OTPs</i></sub>
+</p>
 
-*timo: Time-based Identity Manager for OTPs*
+<p align="center">
+  <img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9%2B-3776ab?style=flat-square&logo=python&logoColor=white">
+  <img alt="macOS · Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Linux-supported-444?style=flat-square">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-444?style=flat-square">
+</p>
 
-A powerful, terminal-based One-Time Password (TOTP) manager written in Python. Designed for speed, security, and flexibility, with clipboard support, previews, and backup management.
-
-![badge](https://img.shields.io/badge/made%20with-%F0%9F%90%8D%20Python-blue?style=flat-square)
-
-## 🚀 Features
-
-- Interactive TOTP selector using `fzf`
-- Search by issuer or account name
-- Auto-copy OTP to clipboard, cleared again after 45 seconds
-- Preview OTP with color-coded expiration
-- Secrets encrypted at rest with your passphrase (scrypt + AES-256-GCM)
-- Passphrase remembered in your OS keychain, so you type it once per machine
-- Runs as your normal user, no `sudo`
-- Encrypted backups, restore and passphrase change
-- Import from Google Authenticator QR (via image or webcam)
-- Add single accounts from a site's 2FA setup QR code, `otpauth://` link or secret key
-- Export accounts to another app, as setup QR codes or `otpauth://` links
-
-## 📦 Requirements
-
-- Python 3.9+
-- [`pipx`](https://pipx.pypa.io/) (`brew install pipx` or `sudo apt install pipx`)
-- `fzf` installed and available in `$PATH`
-- `zbarimg` to import from QR code images (optional)
-- PyAV and zxing-cpp to scan QR codes with the webcam (optional, the `webcam` extra)
-
-## 🔧 Setup
-
-```bash
-pipx install git+https://github.com/leomarss/timo.git
-# or, from a local clone:
-pipx install ~/timo
-```
-
-This puts a `timo` command on your `PATH`, in its own isolated environment. To update later: `pipx upgrade timo-otp` (or `pipx install --force ~/timo` for a local clone).
-
-Make sure `fzf` is installed:
-```bash
-sudo apt install fzf   # Debian/Ubuntu
-# or
-brew install fzf       # macOS
-```
-
-To import OTP secrets from a Google QR code:
-```bash
-sudo apt install zbar-tools   # Debian/Ubuntu
-# or
-brew install zbar       # macOS
-```
-
-If `fzf` is installed but not found by the script, you can set its path manually:
-
-```bash
-export FZF_PATH=$(dirname $(which fzf))
-```
-
-To scan QR codes with the webcam, add PyAV and zxing-cpp to timo's environment:
-```bash
-pipx inject timo-otp av zxing-cpp
-# or install with the extra from the start:
-pipx install 'timo-otp[webcam] @ git+https://github.com/leomarss/timo.git'
-```
-
-Then add your accounts:
-
-```bash
-timo --initialize
-```
-
-The first time, you choose a passphrase. It encrypts your secrets. **If you forget it, the secrets cannot be recovered**, so keep your Google Authenticator export (or another copy) somewhere safe.
-
-After the first unlock, timo saves the passphrase in your OS keychain and stops asking (see [Keychain](#-keychain)).
-
-## 🧪 Usage
-
-```
-timo · your authenticator app, in the terminal, one word away
-
-Copy a code
-  timo [WORDS...]             copy the code of the account matching all words (none: pick with fzf)
-      --no-copy               print the code, don't copy it
-      --clear-after SECONDS   clear the clipboard after SECONDS, 0 = never (default 45)
-
-See your accounts
-  --list                      list all accounts and the day each was added
-  --stats                     show account counts per issuer
-  --watch                     show all codes, refreshing every second
-
-Add and change accounts
-  --initialize                import a Google Authenticator export
-  --export                    export accounts matching WORDS (none: all) to another app
-      --format FORMAT         setup-qr: one QR code per account (default in a terminal), or uri
-      --output FILE           write otpauth:// links to FILE (readable only by you)
-  --add                       add one account (setup QR code, otpauth:// link or secret key)
-  --remove                    pick an account and remove it (asks first)
-  --edit                      edit the decrypted accounts in your editor
-      --backup                back up before saving the changes
-      --editor CMD            editor to use (default: $EDITOR, then vi/nano/vim)
-
-Backups
-  --backup                    create a backup
-  --list-backups              show available backups
-  --restore NAME              restore a backup (current secrets are backed up first)
-  --remove-backups NAME...    delete backups
-  --remove-all-backups        delete all backups (asks first)
-
-Passphrase
-  --passwd                    change the passphrase
-  --forget                    remove it from your keychain and stop saving it
-  --remember                  save it in your keychain again on the next unlock
-
-Other
-  --version                   show the installed version
-  --help, -h                  show this help
-
-Secrets live in ~/.config/timo/ (set TIMO_HOME to use another folder).
-Set TIMO_CLEAR_AFTER to change the default of --clear-after.
-To search for a word that starts with "-": timo -- -word
-```
-
-Every option starts with `-` or `--`, and plain words are always a search, so an account can be called "edit" or "list". Options must be spelled out in full, and only one action can be used at a time.
-
-Yes/no questions take a single key: `y` or `n`, Enter for the default (the capital letter in `[y/N]`), Esc for no. Other keys are ignored, and keys typed before a question appears don't answer it.
-
-### Importing
-
-`timo --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, scan it with the webcam (leave the image path empty), or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full; with the webcam, show each code in turn and the one already read is ignored. Importing adds to your existing accounts (after a backup) and skips accounts you already have: an account counts as the same when its secret key matches, whatever its label (so renaming one with `--edit` doesn't make it come back). Counter-based (HOTP) accounts are not supported and are skipped with a warning.
-
-### Adding an account
-
-`timo --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page) or with the webcam (leave the image path empty), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, timo asks for the issuer and account name.
-
-The current code is shown and copied right away, since most sites ask for one to finish the setup. If the key is already there under any label, nothing changes. If the account already exists with a different key (you reset 2FA on that site), timo asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
-
-### Exporting
-
-`timo --export` moves your accounts to another authenticator app or password manager. Add search words to export only some (`timo --export github`).
-
-- **In a terminal**, it shows one setup QR code per account, the same kind a site shows when you turn on 2FA, so any authenticator app can scan it. Press Enter for the next one, `n` to stop. The codes are drawn on a separate screen that is cleared when timo finishes, so they don't stay in your scrollback.
-- **`--format uri`** gives one `otpauth://` link per line, which apps like Aegis and Ente Auth import as a text file in one go, and which most password managers accept in their TOTP field. Piped or redirected (`timo --export > accounts.txt`), this is the default. In a terminal, timo asks before showing secret keys on screen.
-- **`--output FILE`** writes the links to a new file readable only by you. It never overwrites an existing file.
-
-Exported links and files are **not encrypted**: delete them once the other app has imported the accounts.
-
-### Removing an account
-
-`timo --remove` lets you pick the account with `fzf`. Without `fzf`, it prints a numbered list and you type the number (Enter cancels). Either way it asks `Remove GitHub (me)? [y/N]` before deleting anything, and the previous secrets are backed up first, so `timo --restore` can bring the account back.
-
-### Editing
-
-`timo --edit` decrypts your accounts into a temporary file (inside `~/.config/timo/`, readable only by you), opens your editor, checks the result and re-encrypts it. The temporary file is deleted afterwards. If the edited file isn't valid, you can fix it or discard the changes.
-
-## 🧾 Example Output
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#usage">Usage</a> ·
+  <a href="#security">Security</a> ·
+  <a href="#development">Development</a>
+</p>
 
 ```
 $ timo github
@@ -165,155 +25,82 @@ $ timo github
 ╰───────────────────────────────────────────────╯
 ```
 
-The code is shown as `482 913` to make it easier to read; the clipboard gets `482913`.
+Type a word, get the code on your clipboard. No phone, no app switching. Pick from a fuzzy list with `fzf` when you're not sure, import everything from Google Authenticator in one go, and take it all with you when you leave.
 
-```
-$ timo --stats
- Issuer     Accounts
- ─────────  ────────
- GitHub            2
- Google            2
- AWS               1
- Bitwarden         1
- ─────────  ────────
- Total             6   (4 issuers)
+<table>
+  <tr>
+    <td width="25%" valign="top">
+      <h3>⚡ Fast</h3>
+      One word copies the code, then clears the clipboard after 45 seconds.
+    </td>
+    <td width="25%" valign="top">
+      <h3>🔐 Encrypted</h3>
+      Secrets sealed with scrypt + AES-256-GCM; the passphrase lives in your OS keychain.
+    </td>
+    <td width="25%" valign="top">
+      <h3>📷 Import</h3>
+      From a Google Authenticator export or any 2FA setup QR, via image, webcam or link.
+    </td>
+    <td width="25%" valign="top">
+      <h3>📦 Portable</h3>
+      Export as setup QR codes or <code>otpauth://</code> links to any other app.
+    </td>
+  </tr>
+</table>
 
-$ timo --list-backups
- Backup                               Age
- ───────────────────────────────────  ───────
- secrets.enc.bak.2026-10-12_18-30-00  3 weeks
- secrets.enc.bak.2026-11-01_09-02-41  4 days
-
-$ timo --backup
-✓ Backup saved  ~/.config/timo/backups/secrets.enc.bak.2026-11-05_11-20-03
-
-$ timo gihub
-✗ No account matches "gihub"
-```
-
-In a terminal the code is coloured by the time it has left (green, then yellow, then red). Errors (`✗`) and warnings (`!`) go to stderr. When the output isn't a terminal (a pipe or a script), boxes and tables are left out: you get the bare code (`482913`) and one name per line from `--list` and `--list-backups`. Colour turns off there too, and whenever [`NO_COLOR`](https://no-color.org) is set.
-
-## 🔐 Storage
-
-Everything lives in `~/.config/timo/` (or `$XDG_CONFIG_HOME/timo/`, or the folder in `$TIMO_HOME`):
-
-```
-~/.config/timo/
-├── secrets.enc                  # Encrypted accounts
-└── backups/
-    └── secrets.enc.bak.YYYY-MM-DD_HH-MM-SS
-```
-
-`secrets.enc` is encrypted with AES-256-GCM using a key derived from your passphrase with scrypt. The folder is readable only by you (`700`), the files too (`600`). Every save and backup is written to a temporary file, flushed to disk, and only then renamed into place, so a crash or full disk never leaves a half-written file.
-
-Decrypted (as shown by `timo --edit`), the accounts are a JSON list:
-
-```json
-[
-  {
-    "issuer": "GitHub",
-    "name": "you@example.com",
-    "secret": "JBSWY3DPEHPK3PXP",
-    "algorithm": "SHA1",
-    "digits": 6,
-    "date_added": "2026-11-05T16:02:11+01:00"
-  }
-]
-```
-
-| Field | Required | Values | Default |
-|---|---|---|---|
-| `issuer` | yes | any string | |
-| `name` | yes | any string | |
-| `secret` | yes | base32 secret | |
-| `algorithm` | no | `SHA1`, `SHA256`, `SHA512`, `MD5` | `SHA1` |
-| `digits` | no | `6`, `8` | `6` |
-| `date_added` | no | when `--initialize` or `--add` saved it (ISO 8601, local time) | |
-
-Codes refresh every 30 seconds.
-
-### The fzf preview
-
-The preview runs as a separate process, so it can't ask for your passphrase. timo hands it only the upcoming codes (10 minutes' worth) through an environment variable, which only your user can read. It never gets your secrets or passphrase. If the picker stays open longer, the preview asks you to reopen timo.
-
-### Clipboard
-
-After copying a code, timo clears the clipboard 45 seconds later, but only if it still holds that code, so anything you copied since is left alone. timo doesn't wait for this: a small background process does it. Change the delay with `--clear-after SECONDS` or `export TIMO_CLEAR_AFTER=SECONDS`; `0` turns clearing off.
-
-### Scripting
-
-Set `TIMO_PASSPHRASE` to skip the prompt, e.g. in a script. Anything running as your user can read a process's environment, so only use it where that's acceptable. When it is set, timo doesn't read or write the keychain.
-
-## 🔑 Keychain
-
-The first time you unlock, timo saves the passphrase in your OS keychain (entry `timo`) and doesn't ask again on that machine:
-
-- **macOS:** Keychain. macOS may ask once to allow Python access.
-- **Linux desktop:** GNOME Keyring / KWallet (Secret Service), normally unlocked when you log in.
-- **No keychain** (SSH sessions, headless servers, WSL, containers): timo asks for the passphrase each time, as before.
-
-timo never uses "keyrings" that store passwords in a plain file. If the saved passphrase stops working (e.g. after `timo --passwd` elsewhere), timo asks again and updates it. `timo --passwd` updates it too.
-
-Anyone using your unlocked session can get codes without the passphrase. To go back to typing it every time, run `timo --forget`; `timo --remember` turns it back on.
-
-## 🧯 Backup and Restore
-
-- Backups are encrypted copies, kept in `~/.config/timo/backups/`
-- `import`, `edit --backup`, `passwd` and `backup restore` back up automatically before changing anything
-- Backups keep the passphrase they were made with. Restoring one made before `timo --passwd` asks for that older passphrase and re-encrypts it with the current one.
+## Install
 
 ```bash
-timo --list-backups
-timo --restore secrets.enc.bak.2025-04-18_23-30-00
+brew install pipx fzf               # Debian/Ubuntu: sudo apt install pipx fzf
+pipx install git+https://github.com/leomarss/timo.git
+
+# Optional: scan QR codes from images and with the webcam
+brew install zbar                   # Debian/Ubuntu: sudo apt install zbar-tools
+pipx inject timo-otp av zxing-cpp
 ```
 
-## 🛠️ Development
+Update with `pipx upgrade timo-otp`.
+
+## Usage
 
 ```bash
-cd ~/timo
+timo --initialize    # import a Google Authenticator export (first run sets your passphrase)
+timo --add           # add one account from a setup QR, otpauth:// link or secret key
+timo github          # copy the code of the account matching "github"
+timo                 # pick an account with fzf
+```
+
+| Command | What it does |
+|---|---|
+| `timo WORDS` | Copy the code of the matching account (`--no-copy` to just print it) |
+| `--list` · `--stats` | List accounts, or count them per issuer |
+| `--watch` | Show every code, live |
+| `--add` · `--remove` · `--edit` | Manage single accounts |
+| `--export [WORDS]` | Move accounts to another app (`--format uri` for links) |
+| `--backup` · `--restore NAME` | Encrypted backups, made automatically before every change |
+| `--passwd` · `--forget` | Change the passphrase, or drop it from the keychain |
+
+Run `timo --help` for the full list. Plain words are always a search, so an account can be called `edit` or `list`.
+
+> [!WARNING]
+> Your passphrase encrypts everything. **If you forget it, the secrets cannot be recovered**, so keep your original export somewhere safe.
+
+## Security
+
+- 🗝️ Secrets live in `~/.config/timo/secrets.enc` (override with `TIMO_HOME`), with `700`/`600` permissions and crash-safe writes.
+- The `fzf` preview never sees your secrets or passphrase, only the next 10 minutes of codes.
+- `--edit` temp files are deleted, webcam frames stay in memory, and export QR codes are cleared from scrollback.
+- Exported `otpauth://` links are **not** encrypted: delete them once imported.
+- No `sudo`, no network.
+
+## Development
+
+```bash
 python3 -m venv env
-env/bin/pip install --upgrade pip   # editable installs need pip 21.3+
 env/bin/pip install -e '.[dev]'
 env/bin/python -m pytest
 ```
 
-`env/bin/timo` then runs your working copy. `python src/app.py` works too.
+## License
 
-## 📁 File Structure
-
-```
-timo/
-├── pyproject.toml               # Package metadata and dependencies
-├── src/
-│   ├── app.py                   # Run from a checkout without installing
-│   ├── monitor.py               # Same as "timo --watch"
-│   └── timo/
-│       ├── cli.py               # Argument parsing, "timo" entry point
-│       ├── commands.py          # Command handlers
-│       ├── vault.py             # Encrypted storage
-│       ├── keystore.py          # OS keychain for the passphrase
-│       ├── fileio.py            # Crash-safe private file writes
-│       ├── clipboard.py         # Copy and delayed clear
-│       ├── messages.py          # The text of every message
-│       ├── ui.py                # How output is shown (boxes, tables, colour, stdout/stderr)
-│       ├── utils.py             # OTP generation, backups, helpers
-│       ├── preview.py           # Preview shown in fzf
-│       ├── webcam.py            # QR scanning with the webcam (optional)
-│       └── protobuf/            # Google Authenticator export decoding
-│           ├── migration.py
-│           ├── migration_pb2.py
-│           └── migration.proto
-├── tests/
-└── README.md
-```
-
-## 📌 Credits
-
-This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
-Make sure it is installed to use `timo --initialize` or `timo --add` with QR images.  
-Webcam scanning uses [PyAV](https://github.com/PyAV-Org/PyAV) to read the camera and [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp) to decode the QR code, on macOS and Linux. A mirrored preview of the camera is shown in the terminal itself: as a real image in terminals with the kitty graphics protocol (kitty, Ghostty, WezTerm), otherwise drawn with block characters (in colour where the terminal supports 24-bit colour, in grey otherwise); frames stay in memory and are never saved. On macOS, the first scan asks you to allow your terminal app to use the camera. Press Esc or q to cancel.
-
-
-## 💙 License
-
-MIT License. Built for personal security and terminal love. Contributions welcome!
+MIT. Built on [fzf](https://github.com/junegunn/fzf), [zbar](https://github.com/mchehab/zbar), [PyAV](https://github.com/PyAV-Org/PyAV) and [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp).
