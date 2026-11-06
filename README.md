@@ -27,26 +27,10 @@ $ timo github
 
 Type a word, get the code on your clipboard. No phone, no app switching. Pick from a fuzzy list with `fzf` when you're not sure, import everything from Google Authenticator in one go, and take it all with you when you leave.
 
-<table>
-  <tr>
-    <td width="25%" valign="top">
-      <h3>⚡ Fast</h3>
-      One word copies the code, then clears the clipboard after 45 seconds.
-    </td>
-    <td width="25%" valign="top">
-      <h3>🔐 Encrypted</h3>
-      Secrets sealed with scrypt + AES-256-GCM; the passphrase lives in your OS keychain.
-    </td>
-    <td width="25%" valign="top">
-      <h3>📷 Import</h3>
-      From a Google Authenticator export or any 2FA setup QR, via image, webcam or link.
-    </td>
-    <td width="25%" valign="top">
-      <h3>📦 Portable</h3>
-      Export as setup QR codes or <code>otpauth://</code> links to any other app.
-    </td>
-  </tr>
-</table>
+- ⚡ **Fast**: one word copies the code, clipboard cleared after 45s
+- 🔐 **Encrypted**: scrypt + AES-256-GCM, passphrase in your OS keychain
+- 📷 **Import**: Google Authenticator export or any 2FA setup QR, via image, webcam or link
+- 📦 **Portable**: export as setup QR codes or `otpauth://` links to any other app
 
 ## Install
 
