@@ -39,3 +39,14 @@ The README GIFs are recorded with [vhs](https://github.com/charmbracelet/vhs) on
 brew install vhs
 assets/demo/record.sh
 ```
+
+## Releasing
+
+1. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) into a `## [X.Y.Z] - YYYY-MM-DD` section, and set `__version__` in `src/timo/__init__.py` to `X.Y.Z`.
+2. Commit, push, then tag and push the tag:
+
+   ```bash
+   git tag -a vX.Y.Z -m "timo X.Y.Z" && git push origin vX.Y.Z
+   ```
+
+The tag starts the release workflow: it checks the tag against `__version__` and the changelog, uploads to PyPI, then creates the GitHub release with that version's changelog section as notes. Preview the notes with `.github/scripts/release-notes.sh X.Y.Z`. Push the tag only: creating the release on GitHub by hand makes the workflow fail at its last step.
