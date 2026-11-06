@@ -2,7 +2,7 @@ import io
 import os
 import pty
 import select
-import signal
+import subprocess
 import sys
 import time
 
@@ -42,10 +42,17 @@ def _read_until(fd, done, deadline):
 
 
 def run_in_pty(typed, result_file, timeout=10):
-    """Run read_hidden in a fresh Python attached to a real pseudo-terminal."""
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.execv(sys.executable, [sys.executable, "-c", CHILD, SRC, str(result_file)])
+    """Run read_hidden in a fresh Python attached to a real pseudo-terminal.
+
+    The child is started with subprocess rather than pty.fork(): forking a
+    multi-threaded test process can deadlock the child (Python 3.14 warns about it).
+    """
+    fd, child_end = pty.openpty()
+    child = subprocess.Popen(
+        [sys.executable, "-c", CHILD, SRC, str(result_file)],
+        stdin=child_end, stdout=child_end, stderr=child_end, start_new_session=True,
+    )
+    os.close(child_end)
 
     deadline = time.monotonic() + timeout
     try:
@@ -54,11 +61,8 @@ def run_in_pty(typed, result_file, timeout=10):
         os.write(fd, typed.encode())
         output += _read_until(fd, lambda out: False, deadline)
     finally:
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        os.waitpid(pid, 0)
+        child.kill()
+        child.wait()
         os.close(fd)
     return output.decode(errors="replace")
 
