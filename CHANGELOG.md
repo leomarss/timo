@@ -4,6 +4,18 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-06
+
+### Changed
+
+- The README installs webcam support with `pipx install --force 'timo-otp[webcam]'`, which picks the right zxing-cpp for your Python.
+- PyPI lists the supported Python versions (3.9 to 3.14).
+
+### Added
+
+- Tests run on every push, on macOS and Linux with Python 3.9 to 3.14.
+- `assets/demo/record.sh` records the README demo GIFs again after an output change.
+
 ## [1.0.2] - 2026-11-06
 
 ### Fixed
@@ -47,7 +59,8 @@ First release as timo (Time-based Identity Manager for OTPs), previously `totp-c
 - Crash-safe writes for secrets and backups.
 - The `fzf` preview works with paths that contain spaces.
 
-[Unreleased]: https://github.com/leomarss/timo/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/leomarss/timo/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/leomarss/timo/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/leomarss/timo/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/leomarss/timo/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/leomarss/timo/releases/tag/v1.0.0
