@@ -4,6 +4,7 @@ import subprocess
 import pyotp
 import time
 import os
+import shlex
 import shutil
 import sys
 from datetime import datetime
@@ -170,7 +171,9 @@ def fzf_args(python_path, preview_script, prompt="Select OTP: "):
         f"--prompt={prompt}",
         "--delimiter=\t",
         "--with-nth=2..",
-        "--preview", f"{python_path} {preview_script} {{1}}",
+        # fzf runs this through $SHELL, so quote the paths: pipx puts Python
+        # under "~/Library/Application Support" on macOS.
+        "--preview", f"{shlex.quote(python_path)} {shlex.quote(preview_script)} {{1}}",
         "--preview-window=down:1:wrap",
     ]
 

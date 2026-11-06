@@ -121,3 +121,14 @@ def test_real_fzf_searches_labels_and_returns_index(query, expected):
     lines = "0\tGitHub (me)\n1\tWork (me)\n2\tWork (me)\n"
     result = subprocess.run(args + [f"--filter={query}"], input=lines, capture_output=True, text=True)
     assert result.stdout.splitlines() == expected
+
+
+def test_preview_command_survives_spaces_in_paths(tmp_path):
+    folder = tmp_path / "Application Support"
+    folder.mkdir()
+    script = folder / "preview.py"
+    script.write_text("import sys; print('ok', sys.argv[1])")
+    preview = fzf_args(sys.executable, str(script))
+    cmd = preview[preview.index("--preview") + 1].replace("{1}", "'3'")
+    out = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    assert out.stdout == "ok 3\n", out.stderr
