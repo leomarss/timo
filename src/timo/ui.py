@@ -177,6 +177,92 @@ def out(text=""):
 
 # --- questions -----------------------------------------------------------------------
 
+def ask(field, current):
+    """Ask for a new value of field; returns it, or current for an empty answer.
+
+    On a terminal the current value comes already typed in, ready to change.
+    Elsewhere (a pipe, a script) it's shown in brackets and a line is read.
+    """
+    current = str(current)
+    if not is_terminal(sys.stdin):
+        return input(f"{field} [{current}]: ").strip() or current
+    return _edit_line(f"{field}: ", current).strip() or current
+
+
+# keys of _edit_line, as the escape sequences terminals send for them
+LEFT_KEYS, RIGHT_KEYS = (b"[D", b"OD"), (b"[C", b"OC")
+HOME_KEYS, END_KEYS = (b"[H", b"OH", b"[1~", b"[7~"), (b"[F", b"OF", b"[4~", b"[8~")
+DELETE_KEYS = (b"[3~",)
+
+
+def _edit_line(prompt, text):
+    """Read a line that starts out as text, with the cursor at its end.
+
+    readline would do this, but macOS Pythons use libedit, which ignores
+    text typed in beforehand. Keys: left/right, Home/End (or Ctrl-A/Ctrl-E),
+    Backspace, Delete, Ctrl-U to clear up to the cursor, Enter to finish.
+    """
+    import codecs
+    import termios
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    new = termios.tcgetattr(fd)
+    new[3] &= ~(termios.ECHO | termios.ICANON)  # Ctrl-C still interrupts
+    new[6][termios.VMIN] = 1
+    new[6][termios.VTIME] = 0
+    chars, pos = list(text), len(text)
+    decode = codecs.getincrementaldecoder("utf-8")(errors="replace").decode
+
+    def draw():
+        back = len(chars) - pos
+        sys.stdout.write(f"\r{prompt}{''.join(chars)}\033[K" + (f"\033[{back}D" if back else ""))
+        sys.stdout.flush()
+
+    try:
+        termios.tcsetattr(fd, termios.TCSANOW, new)
+        draw()
+        while True:
+            key = os.read(fd, 1)
+            if key in ENTER_KEYS:
+                break
+            if key == b"" or (key == b"\x04" and not chars):
+                raise EOFError
+            if key in (b"\x7f", b"\x08"):
+                if pos:
+                    pos -= 1
+                    del chars[pos]
+            elif key == b"\x01":
+                pos = 0
+            elif key == b"\x05":
+                pos = len(chars)
+            elif key == b"\x15":
+                del chars[:pos]
+                pos = 0
+            elif key == b"\x1b":
+                sequence = _read_escape_sequence(fd)
+                if sequence in LEFT_KEYS:
+                    pos = max(pos - 1, 0)
+                elif sequence in RIGHT_KEYS:
+                    pos = min(pos + 1, len(chars))
+                elif sequence in HOME_KEYS:
+                    pos = 0
+                elif sequence in END_KEYS:
+                    pos = len(chars)
+                elif sequence in DELETE_KEYS and pos < len(chars):
+                    del chars[pos]
+            elif key >= b" ":  # text; other control keys are ignored
+                for ch in decode(key):  # empty until a multi-byte character is complete
+                    chars.insert(pos, ch)
+                    pos += 1
+            draw()
+    finally:
+        termios.tcsetattr(fd, termios.TCSANOW, old)
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+    return "".join(chars)
+
+
 YES_KEYS = (b"y", b"Y")
 NO_KEYS = (b"n", b"N", b"\x1b")  # Esc backs out
 ENTER_KEYS = (b"\r", b"\n")
@@ -213,7 +299,7 @@ def confirm(question, default=False):
             key = os.read(fd, 1)
             if key in (b"", b"\x04"):
                 raise EOFError
-            if key == b"\x1b" and _drain_escape_sequence(fd):
+            if key == b"\x1b" and _read_escape_sequence(fd):
                 key = None  # an arrow or function key, not Esc on its own
             if key in YES_KEYS:
                 answer = True
@@ -237,15 +323,22 @@ def confirm(question, default=False):
     return answer
 
 
-def _drain_escape_sequence(fd):
-    """After an Esc byte: read away the rest of a key sequence; True if there was one."""
+def _read_escape_sequence(fd):
+    """After an Esc byte: the rest of a key sequence (b"[D" for left), or b"" for Esc on its own."""
     import select
 
-    drained = False
-    while select.select([fd], [], [], 0.03)[0]:
-        os.read(fd, 16)
-        drained = True
-    return drained
+    if not select.select([fd], [], [], 0.03)[0]:
+        return b""
+    sequence = os.read(fd, 1)
+    if sequence == b"O":  # Esc O D: one more byte
+        return sequence + os.read(fd, 1)
+    if sequence == b"[":  # Esc [ 3 ~: parameters, then one final byte
+        while True:
+            byte = os.read(fd, 1)
+            sequence += byte
+            if not b"0" <= byte <= b"?":
+                break
+    return sequence  # stops there, so keys typed right after aren't swallowed
 
 
 def _confirm_line(prompt, default):

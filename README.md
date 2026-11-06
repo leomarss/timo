@@ -76,7 +76,7 @@ timo                 # pick an account with fzf
 | `timo WORDS` | Copy the code of the matching account (`--no-copy` to just print it) |
 | `--list` · `--stats` | List accounts, or count them per issuer |
 | `--watch` | Show every code, live |
-| `--add` · `--remove` · `--edit` | Manage single accounts |
+| `--add` · `--remove` · `--edit [WORDS]` | Add, remove, rename an account or fix its key |
 | `--export [WORDS]` | Move accounts to another app (`--format uri` for links) |
 | `--backup` · `--restore NAME` | Encrypted backups, made automatically before every change |
 | `--passwd` · `--forget` | Change the passphrase, or drop it from the keychain |
@@ -92,7 +92,7 @@ Run `timo --help` for the full list. Plain words are always a search, so an acco
 
 - Secrets live in `~/.config/timo/secrets.enc` (override with `TIMO_HOME`), with `700`/`600` permissions and crash-safe writes.
 - The `fzf` preview never sees your secrets or passphrase, only the next 10 minutes of codes.
-- `--edit` temp files are deleted, webcam frames stay in memory, and export QR codes are cleared from scrollback.
+- Decrypted secrets are never written to disk, webcam frames stay in memory, and export QR codes are cleared from scrollback.
 - Exported `otpauth://` links are **not** encrypted: delete them once imported.
 - No `sudo`, no network.
 

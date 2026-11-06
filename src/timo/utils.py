@@ -46,24 +46,6 @@ BACKUP_PREFIX = "secrets.enc.bak."
 PREVIEW_WINDOWS = 20  # codes handed to the fzf preview: 20 x 30s = 10 minutes
 
 
-def validate_accounts(accounts):
-    """Raise ValueError unless accounts is a list of usable account dicts."""
-    if not isinstance(accounts, list):
-        raise ValueError("Expected a JSON list of accounts")
-    for i, acc in enumerate(accounts, 1):
-        if not isinstance(acc, dict):
-            raise ValueError(f"Account #{i} is not an object")
-        for field in ("issuer", "name", "secret"):
-            if not isinstance(acc.get(field), str):
-                raise ValueError(f"Account #{i} needs a text \"{field}\"")
-        if not isinstance(acc.get("date_added", ""), str):
-            raise ValueError(f"Account #{i}: \"date_added\" must be text")
-        try:
-            make_totp(acc).now()
-        except Exception as e:
-            raise ValueError(f"Account #{i} ({acc['issuer']}): {e}") from None
-
-
 def secret_key(secret):
     """A secret in one canonical form, so "jbsw y3dp" and "JBSWY3DP==" compare equal."""
     return re.sub(r"[\s=-]", "", str(secret)).upper()

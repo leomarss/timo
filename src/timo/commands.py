@@ -2,7 +2,6 @@
 import getpass
 import json
 import os
-import shlex
 import shutil
 import subprocess
 import sys
@@ -25,7 +24,6 @@ from timo.utils import (
     resolve_backup_path,
     scan_qr_image,
     secret_key,
-    validate_accounts,
 )
 from timo import clipboard, fileio, keystore, ui
 from timo import messages as msg
@@ -359,52 +357,93 @@ def _draw_watch(accounts):
 
 # --- edit --------------------------------------------------------------------------
 
-def _pick_editor(requested):
-    for candidate in (requested, os.environ.get("EDITOR"), "vi", "nano", "vim"):
-        if candidate and shutil.which(shlex.split(candidate)[0]):
-            return shlex.split(candidate)
-    return None
-
-
 def cmd_edit(args, ctx):
     vault, accounts = open_vault(ctx)
-    editor = _pick_editor(args.editor)
-    if not editor:
-        raise Abort(msg.NO_EDITOR, msg.NO_EDITOR_HINT)
+    index = _pick_account(ctx, accounts, _matching(accounts, args.query),
+                          msg.FZF_EDIT_PROMPT, msg.PROMPT_EDIT_NUMBER)
+    if index is None:
+        ui.note(msg.NOTHING_CHANGED)
+        return 0
 
-    # decrypted copy lives next to the secrets (0700 folder) only while the editor runs
-    os.makedirs(os.path.dirname(ctx.secrets_path), mode=0o700, exist_ok=True)
-    tmp_path = os.path.join(os.path.dirname(ctx.secrets_path), f".edit-{os.getpid()}.json")
-    original = json.dumps(accounts, indent=2) + "\n"
-    try:
-        fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "w") as f:
-            f.write(original)
-        while True:
-            subprocess.run(editor + [tmp_path])
-            with open(tmp_path) as f:
-                text = f.read()
-            if text == original:
-                ui.note(msg.NO_CHANGES)
-                return 0
-            try:
-                edited = json.loads(text)
-                validate_accounts(edited)
-                break
-            except ValueError as e:
-                ui.error(msg.INVALID_EDIT.format(error=e))
-                if not ui.confirm(msg.PROMPT_EDIT_AGAIN, default=True):
-                    ui.warn(msg.CHANGES_DISCARDED)
-                    return 1
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+    old = accounts[index]
+    others = accounts[:index] + accounts[index + 1:]
+    ui.out(ui.paint(msg.EDITING.format(name=label(old)), ui.BOLD))
+    ui.note(msg.EDIT_HINT)
+    acc = dict(old)
+    for step in (_edit_text("issuer", msg.FIELD_ISSUER), _edit_text("name", msg.FIELD_NAME), _edit_secret):
+        acc = _until_valid(step, acc, others)
 
-    if args.backup:
-        ui.ok(msg.BACKUP_SAVED, _rel(create_backup(ctx.secrets_path, ctx.backup_dir)))
-    vault.save(edited)
-    ui.ok(msg.SAVED_ACCOUNTS.format(accounts=plural(len(edited), "account")))
+    changes = _edit_changes(old, acc)
+    if not changes:
+        ui.note(msg.NO_CHANGES)
+        return 0
+    if ui.is_terminal():
+        ui.out()
+    for line in changes:
+        ui.out(f"{ui.paint(msg.CHANGE_BULLET, ui.CYAN)} {line}")
+    if ui.is_terminal():
+        ui.out()
+    if not ui.confirm(msg.PROMPT_SAVE_EDIT, default=True):
+        ui.warn(msg.CHANGES_DISCARDED)
+        return 0
+
+    backup = save_with_backup(ctx, vault, accounts[:index] + [acc] + accounts[index + 1:])
+    ui.ok(msg.PREVIOUS_BACKED_UP, _rel(backup))
+    ui.ok(msg.SAVED_ACCOUNT.format(name=label(acc)))
     return 0
+
+
+def _until_valid(step, acc, others):
+    """Run one question of --edit, asking again until the answer is usable."""
+    while True:
+        try:
+            return step(acc, others)
+        except ValueError as e:
+            ui.error(str(e))
+
+
+def _edit_text(field, title):
+    def edit(acc, others):
+        changed = {**acc, field: ui.ask(title, acc[field])}
+        if changed[field] == acc[field]:
+            return acc  # kept: even a label two accounts already share stays as it is
+        taken = next((o for o in others if _same_account(o, changed)), None)
+        if taken is not None:
+            raise ValueError(msg.LABEL_TAKEN.format(name=label(taken)))
+        return changed
+    return edit
+
+
+def _edit_secret(acc, others):
+    from timo.otpauth import normalize_secret
+
+    text = read_hidden(msg.PROMPT_NEW_SECRET).strip()
+    if not text:
+        return acc
+    changed = {**acc, "secret": normalize_secret(text)}
+    make_totp(changed).now()
+    taken = next((o for o in others if secret_key(o["secret"]) == changed["secret"]), None)
+    if taken is not None:
+        raise ValueError(msg.SECRET_TAKEN.format(name=label(taken)))
+    return changed
+
+
+def _edit_changes(old, new):
+    """One line per changed field, e.g. "Name: me → work"; never shows a secret.
+
+    On a terminal the old value is dimmed and the new value is bold.
+    """
+    def dim(text):
+        return ui.paint(text, ui.DIM)
+
+    def bold(text):
+        return ui.paint(text, ui.BOLD)
+
+    pairs = ((msg.FIELD_ISSUER, old["issuer"], new["issuer"]), (msg.FIELD_NAME, old["name"], new["name"]))
+    lines = [msg.CHANGED_FROM_TO.format(field=f"{f}:", old=dim(a), new=bold(b)) for f, a, b in pairs if a != b]
+    if secret_key(old["secret"]) != secret_key(new["secret"]):
+        lines.append(msg.CHANGED_TO.format(field=f"{msg.FIELD_SECRET}:", new=bold(msg.SECRET_CHANGED)))
+    return lines
 
 
 # --- backups -----------------------------------------------------------------------
@@ -749,21 +788,35 @@ def _show_setup_qrs(accounts):
 
 # --- remove ------------------------------------------------------------------------
 
-def _pick_by_number(accounts):
-    """Show a numbered list and ask for a number; returns an index or None (Enter)."""
+def _pick_account(ctx, accounts, matches, fzf_prompt, number_prompt):
+    """The index of the account to act on, among matches [(index, account)].
+
+    The only match is taken as it is; otherwise the user picks one with fzf,
+    or from a numbered list without it. None if they cancelled.
+    """
+    if len(matches) == 1:
+        return matches[0][0]
+    if _find_fzf():
+        return _pick_with_fzf(ctx, accounts, matches, prompt=fzf_prompt, show_date=True)
+    return _pick_by_number(matches, number_prompt)
+
+
+def _pick_by_number(matches, prompt):
+    """Show matches [(index, account)] numbered from 1 and ask for a number; None for Enter."""
+    shown = [acc for _, acc in matches]
     if ui.is_terminal():
-        _account_table(accounts)
+        _account_table(shown)
     else:
-        width = len(str(len(accounts)))
-        for i, acc in enumerate(accounts, 1):
+        width = len(str(len(shown)))
+        for i, acc in enumerate(shown, 1):
             ui.out(f"{i:>{width}}  {label(acc)}")
     while True:
-        answer = input(msg.PROMPT_REMOVE_NUMBER).strip()
+        answer = input(prompt).strip()
         if not answer:
             return None
-        if answer.isdigit() and 1 <= int(answer) <= len(accounts):
-            return int(answer) - 1
-        ui.warn(msg.BAD_NUMBER.format(count=len(accounts)))
+        if answer.isdigit() and 1 <= int(answer) <= len(shown):
+            return matches[int(answer) - 1][0]
+        ui.warn(msg.BAD_NUMBER.format(count=len(shown)))
 
 
 def cmd_remove(args, ctx):
@@ -771,11 +824,8 @@ def cmd_remove(args, ctx):
     if not accounts:
         raise Abort(msg.NO_ACCOUNTS, msg.NO_SECRETS_HINT)
 
-    if _find_fzf():
-        index = _pick_with_fzf(ctx, accounts, list(enumerate(accounts)), prompt=msg.FZF_REMOVE_PROMPT,
-                               show_date=True)
-    else:
-        index = _pick_by_number(accounts)
+    index = _pick_account(ctx, accounts, list(enumerate(accounts)), msg.FZF_REMOVE_PROMPT,
+                          msg.PROMPT_REMOVE_NUMBER)
     if index is None or not ui.confirm(msg.PROMPT_REMOVE_ACCOUNT.format(name=label(accounts[index]))):
         ui.note(msg.NOTHING_REMOVED)
         return 0

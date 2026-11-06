@@ -37,9 +37,9 @@ def test_descriptions_line_up():
 
 def test_options_of_one_action_are_indented_under_it():
     lines = plain_help().splitlines()
-    edit = lines.index(next(line for line in lines if line.startswith("  --edit ")))
-    assert lines[edit + 1].startswith("      --backup ")
-    assert lines[edit + 2].startswith("      --editor CMD ")
+    export = lines.index(next(line for line in lines if line.startswith("  --export ")))
+    assert lines[export + 1].startswith("      --format FORMAT ")
+    assert lines[export + 2].startswith("      --output FILE ")
     words = lines.index(next(line for line in lines if line.startswith("  timo [WORDS...]")))
     assert lines[words + 1].startswith("      --no-copy ")
 

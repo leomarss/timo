@@ -90,12 +90,8 @@ class Parser(argparse.ArgumentParser):
     def option(self, *flags, under=None, **kwargs):
         """add_argument(), and list it in the current section (indented if `under` an action)."""
         action = self.add_argument(*flags, **kwargs)
-        self.show(action, under=under)
+        self.sections[-1][1].append((action, action.help, under is not None))
         return action
-
-    def show(self, action, help=None, under=None):
-        """List an action (again) in the current section, e.g. --backup under --edit."""
-        self.sections[-1][1].append((action, help or action.help, under is not None))
 
     def format_help(self):
         rows = [(title, [(_invocation(action), text, indented) for action, text, indented in entries])
@@ -156,12 +152,11 @@ def build_parser():
     option("--output", metavar="FILE", under=export, help="write otpauth:// links to FILE (readable only by you)")
     option("--add", action="store_true", help="add one account (setup QR code, otpauth:// link or secret key)")
     option("--remove", action="store_true", help="pick an account and remove it (asks first)")
-    edit = option("--edit", action="store_true", help="edit the decrypted accounts in your editor")
-    backup = option("--backup", action="store_true", under=edit, help="back up before saving the changes")
-    option("--editor", metavar="CMD", under=edit, help="editor to use (default: $EDITOR, then vi/nano/vim)")
+    option("--edit", action="store_true",
+           help="rename an account or fix its key (WORDS: pick among the matching ones)")
 
     parser.section("Backups")
-    parser.show(backup, help="create a backup")
+    option("--backup", action="store_true", help="create a backup")
     option("--list-backups", action="store_true", help="show available backups")
     option("--restore", metavar="NAME", help="restore a backup (current secrets are backed up first)")
     option("--remove-backups", nargs="+", metavar="NAME", help="delete backups")
@@ -186,9 +181,6 @@ def _chosen_actions(args):
         value = getattr(args, flag[2:].replace("-", "_"))
         if value not in (None, False):
             chosen.append(name)
-    # --backup is a modifier of --edit
-    if "backup" in chosen and "edit" in chosen:
-        chosen.remove("backup")
     return chosen
 
 
@@ -199,6 +191,8 @@ def parse(argv):
     if "--" in argv:
         i = argv.index("--")
         argv, literal = argv[:i], argv[i + 1:]
+    if any(a == "--editor" or a.startswith("--editor=") for a in argv):
+        parser.error("--editor was removed: --edit now asks what to change, no editor needed")
     args = parser.parse_intermixed_args(argv)  # search words may come before and after options
     args.query = args.query + literal
     chosen = _chosen_actions(args)
@@ -208,12 +202,10 @@ def parse(argv):
     action = chosen[0] if chosen else "get"
 
     if action != "get":
-        if args.query and action != "export":
+        if args.query and action not in ("export", "edit"):
             parser.error(f"search words can't be combined with {ACTIONS[action][0]}")
         if args.no_copy or args.clear_after is not None:
             parser.error("--no-copy and --clear-after only apply when copying a code")
-    if args.editor is not None and action != "edit":
-        parser.error("--editor only works with --edit")
     if (args.format is not None or args.output is not None) and action != "export":
         parser.error("--format and --output only work with --export")
     if args.output is not None and args.format == "setup-qr":

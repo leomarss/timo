@@ -1,6 +1,4 @@
-import json
 import os
-import sys
 
 import pytest
 
@@ -23,8 +21,7 @@ TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
     (["--stats"], "stats"),
     (["--watch"], "watch"),
     (["--edit"], "edit"),
-    (["--edit", "--backup", "--editor=vim"], "edit"),
-    (["--editor", "vim", "--backup", "--edit"], "edit"),
+    (["--edit", "github", "me"], "edit"),
     (["--initialize"], "initialize"),
     (["--add"], "add"),
     (["--passwd"], "passwd"),
@@ -53,7 +50,8 @@ def test_query_words_are_kept():
     ["--list", "--stats"], ["--edit", "--list"], ["--restore", "x", "--backup"],  # two actions
     ["github", "--list"],  # search words with an action
     ["--list", "--no-copy"], ["--stats", "--clear-after", "5"],  # get-only options
-    ["--editor", "vim"],  # option without its action
+    ["--editor", "vim"], ["--edit", "--editor=vim"],  # removed: --edit is guided now
+    ["--edit", "--backup"],  # --edit always backs up
     ["--migrate"], ["--yes"],  # removed
     ["--remove-all-backups", "--remove-backups", "x"], ["--remove-backups"],
     ["--remove", "github"],  # --remove picks from a list, it takes no words
@@ -135,68 +133,122 @@ def test_stats(cli, accounts, expected):
 
 
 # --- edit -------------------------------------------------------------------------
+# questions in order: issuer, name, secret key (hidden), then save?
 
 @pytest.fixture
-def editor(tmp_path, monkeypatch):
-    """A fake editor that writes $EDIT_CONTENT into the file (or leaves it alone)."""
-    script = tmp_path / "fake_editor.py"
-    script.write_text(
-        "import os, sys\n"
-        "content = os.environ.get('EDIT_CONTENT')\n"
-        "if content is not None:\n"
-        "    open(sys.argv[1], 'w').write(content)\n"
-        "open(os.environ['SEEN_PATH'], 'w').write(sys.argv[1])\n"
-    )
-    monkeypatch.setenv("SEEN_PATH", str(tmp_path / "seen"))
-    return f"{sys.executable} {script}"
+def no_fzf(monkeypatch):
+    monkeypatch.setattr(commands, "_find_fzf", lambda: False)
 
 
-def test_edit_saves_valid_changes(cli, editor, monkeypatch):
-    cli.store(ACC)
-    monkeypatch.setenv("EDIT_CONTENT", json.dumps(TWO))
-    code, out, _ = cli.run("--edit", "--editor", editor)
-    assert code == 0 and "✓ Saved 2 accounts" in out
-    assert cli.load() == TWO
-    assert list_backups(str(cli.backups)) == []
+@pytest.fixture
+def hidden(monkeypatch):
+    """Answers for the hidden secret key question, in order; Enter once they run out."""
+    answers = []
+    monkeypatch.setattr(commands, "read_hidden", lambda prompt: answers.pop(0) if answers else "")
+    return answers
 
 
-def test_edit_removes_decrypted_temp_file(cli, editor, monkeypatch, tmp_path):
-    cli.store(ACC)
-    monkeypatch.setenv("EDIT_CONTENT", json.dumps(TWO))
-    cli.run("--edit", "--editor", editor)
-    temp = (tmp_path / "seen").read_text()
-    assert not os.path.exists(temp)
-    assert sorted(p.name for p in cli.secrets.parent.iterdir()) == ["secrets.enc"]
-
-
-@pytest.mark.parametrize("argv", [
-    ["--edit", "--backup", "--editor", "EDITOR"],
-    ["--edit", "--editor=EDITOR", "--backup"],  # old order that used to skip the backup
-])
-def test_edit_with_backup(cli, editor, monkeypatch, argv):
-    cli.store(ACC)
-    monkeypatch.setenv("EDIT_CONTENT", json.dumps(TWO))
-    argv = [a.replace("EDITOR", editor) for a in argv]
-    code, out, _ = cli.run(*argv)
-    assert code == 0
+def test_edit_renames_the_only_match(cli, hidden):
+    cli.store(TWO)
+    code, out, err = cli.run("--edit", "github", answers=["", "work", "y"])
+    assert code == 0, err
+    assert "Editing GitHub (me)" in out
+    assert "Name: me → work" in out
+    assert "✓ Saved GitHub (work)" in out
+    assert cli.load() == [{**ACC[0], "name": "work"}, TWO[1]]
     assert len(list_backups(str(cli.backups))) == 1
 
 
-def test_edit_without_changes(cli, editor):
+def test_edit_enter_keeps_every_value(cli, hidden):
     cli.store(ACC)
-    code, _, err = cli.run("--edit", "--editor", editor)
+    code, _, err = cli.run("--edit", answers=["", ""])
     assert code == 0 and "No changes" in err
-
-
-@pytest.mark.parametrize("content", ["not json", '{"a": 1}', '[{"issuer": "x"}]',
-                                     '[{"issuer": "x", "name": "y", "secret": "Z", "digits": 7}]'])
-def test_edit_rejects_invalid_content(cli, editor, monkeypatch, content):
-    cli.store(ACC)
-    monkeypatch.setenv("EDIT_CONTENT", content)
-    code, _, err = cli.run("--edit", "--editor", editor, answers=["n"])
-    assert code == 1
-    assert "✗ Invalid accounts" in err and "! Changes discarded" in err
     assert cli.load() == ACC
+    assert list_backups(str(cli.backups)) == []
+
+
+def test_edit_every_field(cli, hidden):
+    cli.store([{**ACC[0], "algorithm": "SHA256", "digits": 8}])
+    hidden.append("gezd gnbv gy3t qojq")
+    code, out, err = cli.run("--edit", answers=["GitLab", "work", "y"])
+    assert code == 0, err
+    assert "Issuer: GitHub → GitLab" in out and "Name: me → work" in out and "Secret key: changed" in out
+    assert cli.load() == [{"issuer": "GitLab", "name": "work", "secret": "GEZDGNBVGY3TQOJQ",
+                           "algorithm": "SHA256", "digits": 8}]  # algorithm and digits kept as they were
+
+
+def test_edit_never_shows_the_secret(cli, hidden):
+    cli.store(ACC)
+    hidden.append("gezd gnbv gy3t qojq")
+    _, out, err = cli.run("--edit", answers=["", "", "y"])
+    assert ACC[0]["secret"] not in out + err and "GEZDGNBVGY3TQOJQ" not in out + err
+
+
+def test_edit_asks_again_after_a_bad_secret(cli, hidden):
+    cli.store(ACC)
+    hidden.extend(["not a key!", "GEZDGNBVGY3TQOJQ"])
+    code, _, err = cli.run("--edit", answers=["", "", "y"])
+    assert "doesn't look like a secret key" in err
+    assert cli.load()[0]["secret"] == "GEZDGNBVGY3TQOJQ"
+
+
+def test_edit_refuses_a_label_another_account_has(cli, hidden):
+    cli.store(TWO)
+    code, _, err = cli.run("--edit", "aws", answers=["github", "ME", "", ""])
+    assert "GitHub (me) already exists" in err
+    assert cli.load()[1] == {**TWO[1], "issuer": "github"}  # the issuer alone was fine
+
+
+def test_edit_keeps_a_label_two_accounts_already_share(cli, hidden, no_fzf):
+    twins = [ACC[0], {**ACC[0], "secret": "GEZDGNBVGY3TQOJQ"}]
+    cli.store(twins)
+    code, _, err = cli.run("--edit", answers=["1", "", ""])
+    assert code == 0 and "No changes" in err and "already exists" not in err
+    assert cli.load() == twins
+
+
+def test_edit_refuses_a_secret_another_account_has(cli, hidden):
+    cli.store(TWO)
+    hidden.extend([ACC[0]["secret"].lower(), ""])
+    _, _, err = cli.run("--edit", "aws", answers=["", ""])
+    assert "That secret key belongs to GitHub (me)" in err
+    assert cli.load() == TWO
+
+
+def test_edit_can_be_discarded_at_the_end(cli, hidden):
+    cli.store(ACC)
+    code, _, err = cli.run("--edit", answers=["", "work", "n"])
+    assert code == 0 and "Changes discarded" in err
+    assert cli.load() == ACC
+    assert list_backups(str(cli.backups)) == []
+
+
+def test_edit_picks_by_number_among_the_matches(cli, hidden, no_fzf):
+    three = TWO + [{"issuer": "GitHub", "name": "work", "secret": "MFRGGZDFMZTWQ2LK"}]
+    cli.store(three)
+    code, out, err = cli.run("--edit", "github", answers=["2", "", "job", "y"])
+    assert code == 0, err
+    assert out.splitlines()[:2] == ["1  GitHub (me)", "2  GitHub (work)"]
+    assert [a["name"] for a in cli.load()] == ["me", "ops", "job"]
+
+
+def test_edit_cancelled_at_the_picker(cli, no_fzf):
+    cli.store(TWO)
+    code, _, err = cli.run("--edit", answers=[""])
+    assert code == 0 and "Nothing changed" in err
+    assert cli.load() == TWO
+
+
+def test_edit_without_a_match(cli):
+    cli.store(TWO)
+    code, _, err = cli.run("--edit", "nope")
+    assert code == 1 and "nope" in err
+
+
+def test_edit_writes_no_decrypted_files(cli, hidden):
+    cli.store(ACC)
+    cli.run("--edit", answers=["", "work", "y"])
+    assert sorted(p.name for p in cli.secrets.parent.iterdir()) == ["backups", "secrets.enc"]
 
 
 # --- passwd -----------------------------------------------------------------------

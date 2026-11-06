@@ -4,6 +4,16 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Changed
+
+- `--edit` is guided: pick an account (`timo --edit github` narrows the list), then it asks for the issuer, name and secret key in turn. Each value comes already typed in, so you fix it with the arrow keys and Enter keeps it, and it's checked as soon as you type it. No editor and no decrypted temp file anymore.
+- `--edit` backs up the secrets before saving, like every other change.
+- `--remove` goes straight to the confirmation when there is only one account.
+
+### Removed
+
+- `--editor`, and `--backup` as a modifier of `--edit` (`--backup` alone still creates a backup).
+
 ## [1.0.3] - 2026-11-06
 
 ### Changed
