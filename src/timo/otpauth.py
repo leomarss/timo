@@ -9,7 +9,7 @@ import binascii
 import re
 from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit
 
-PERIOD = 30  # the only code lifetime otpcli supports
+PERIOD = 30  # the only code lifetime timo supports
 BASE32 = re.compile(r"[A-Z2-7]+")
 
 

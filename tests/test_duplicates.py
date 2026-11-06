@@ -9,9 +9,9 @@ import sys
 import pyotp
 import pytest
 
-from totp_cli import preview
-from totp_cli.utils import fzf_args, preview_codes
-from totp_cli.vault import Vault
+from timo import preview
+from timo.utils import fzf_args, preview_codes
+from timo.vault import Vault
 
 SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 PASSPHRASE = "e2e passphrase"
@@ -49,7 +49,7 @@ def app(tmp_path):
     fzf.chmod(fzf.stat().st_mode | stat.S_IEXEC)
     record = tmp_path / "record.json"
     env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
-               TOTP_CLI_HOME=str(home), TOTP_CLI_PASSPHRASE=PASSPHRASE, RECORD=str(record))
+               TIMO_HOME=str(home), TIMO_PASSPHRASE=PASSPHRASE, RECORD=str(record))
 
     def run(*argv, pick):
         result = subprocess.run([sys.executable, os.path.join(SRC, "app.py"), *argv],
@@ -73,18 +73,18 @@ def test_selecting_second_duplicate_uses_its_own_secret(app):
 def test_fzf_and_preview_never_see_passphrase_or_secrets(app):
     _, record = app("work", "--no-copy", pick=0)
     env_dump = json.dumps(record["env"])
-    assert "TOTP_CLI_PASSPHRASE" not in record["env"]
+    assert "TIMO_PASSPHRASE" not in record["env"]
     assert PASSPHRASE not in env_dump
     for acc in ACCOUNTS:
         assert acc["secret"] not in env_dump
-    assert "TOTP_CLI_PREVIEW" in record["env"]
+    assert "TIMO_PREVIEW" in record["env"]
 
 
 # --- preview script ---------------------------------------------------------------
 
 def test_preview_picks_code_for_current_window():
     data = preview_codes([(5, ACCOUNTS[0])], now=1000)
-    env = {"TOTP_CLI_PREVIEW": json.dumps(data)}
+    env = {"TIMO_PREVIEW": json.dumps(data)}
     totp = pyotp.TOTP(ACCOUNTS[0]["secret"])
     for now in (1000, 1031, 1500):
         out = preview.main(["preview.py", "5"], env, now)
@@ -95,14 +95,14 @@ def test_preview_picks_code_for_current_window():
 
 def test_preview_after_codes_run_out():
     data = preview_codes([(0, ACCOUNTS[0])], now=1000)
-    env = {"TOTP_CLI_PREVIEW": json.dumps(data)}
+    env = {"TIMO_PREVIEW": json.dumps(data)}
     assert "expired" in preview.main(["preview.py", "0"], env, 1000 + 20 * 30 + 1)
 
 
-@pytest.mark.parametrize("argv, env", [(["p"], {}), (["p", "9"], None), (["p", "0"], {"TOTP_CLI_PREVIEW": "junk"})])
+@pytest.mark.parametrize("argv, env", [(["p"], {}), (["p", "9"], None), (["p", "0"], {"TIMO_PREVIEW": "junk"})])
 def test_preview_handles_missing_data(argv, env):
     if env is None:
-        env = {"TOTP_CLI_PREVIEW": json.dumps(preview_codes([(0, ACCOUNTS[0])], now=0))}
+        env = {"TIMO_PREVIEW": json.dumps(preview_codes([(0, ACCOUNTS[0])], now=0))}
     assert preview.main(argv, env, 0) == ""
 
 

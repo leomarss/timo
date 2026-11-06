@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from totp_cli import clipboard, commands
+from timo import clipboard, commands
 
 SRC = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
@@ -45,7 +45,7 @@ def test_clipboard_errors_are_ignored():
     clipboard.clear_if_unchanged("123456", 1, broken, broken, lambda s: None)
 
 
-# --- how otpcli schedules it ---------------------------------------------------------
+# --- how timo schedules it ---------------------------------------------------------
 
 @pytest.fixture
 def spawned(monkeypatch):
@@ -67,7 +67,7 @@ def spawned(monkeypatch):
 
     monkeypatch.setattr(clipboard.subprocess, "Popen", FakePopen)
     monkeypatch.setattr(clipboard, "copy", lambda code: True)
-    monkeypatch.delenv("TOTP_CLI_CLEAR_AFTER", raising=False)
+    monkeypatch.delenv("TIMO_CLEAR_AFTER", raising=False)
     return calls
 
 
@@ -91,7 +91,7 @@ def test_get_schedules_clear_with_code_on_stdin_not_argv(cli, spawned):
 ])
 def test_clear_delay_can_be_changed(cli, spawned, monkeypatch, argv, env, expected):
     if env:
-        monkeypatch.setenv("TOTP_CLI_CLEAR_AFTER", env)
+        monkeypatch.setenv("TIMO_CLEAR_AFTER", env)
     cli.store(ACC)
     code, out, _ = cli.run(*argv)
     assert expected in out
@@ -100,7 +100,7 @@ def test_clear_delay_can_be_changed(cli, spawned, monkeypatch, argv, env, expect
 @pytest.mark.parametrize("argv, env", [(["git", "--clear-after", "0"], None), (["git"], "0")])
 def test_zero_disables_clearing(cli, spawned, monkeypatch, argv, env):
     if env:
-        monkeypatch.setenv("TOTP_CLI_CLEAR_AFTER", env)
+        monkeypatch.setenv("TIMO_CLEAR_AFTER", env)
     cli.store(ACC)
     code, out, _ = cli.run(*argv)
     assert code == 0 and out.rstrip().endswith("· copied")
@@ -114,16 +114,16 @@ def test_no_copy_schedules_nothing(cli, spawned):
 
 
 def test_bad_clear_after_env_is_rejected(cli, spawned, monkeypatch):
-    monkeypatch.setenv("TOTP_CLI_CLEAR_AFTER", "soon")
+    monkeypatch.setenv("TIMO_CLEAR_AFTER", "soon")
     cli.store(ACC)
     code, _, err = cli.run("git")
-    assert code == 1 and "TOTP_CLI_CLEAR_AFTER" in err
+    assert code == 1 and "TIMO_CLEAR_AFTER" in err
 
 
 # --- end to end with a real background process ----------------------------------------
 
 def test_background_clear_end_to_end(tmp_path):
-    """Real otpcli process and real detached clearer, with a fake pyperclip backed by a file."""
+    """Real timo process and real detached clearer, with a fake pyperclip backed by a file."""
     board = tmp_path / "board.txt"
     fake = tmp_path / "fake"
     fake.mkdir()
@@ -133,16 +133,16 @@ def test_background_clear_end_to_end(tmp_path):
         "def copy(t): open(P, 'w').write(t)\n"
         "def paste(): return open(P).read() if os.path.exists(P) else ''\n"
     )
-    from totp_cli.vault import Vault
+    from timo.vault import Vault
     Vault(str(tmp_path / "cfg" / "secrets.enc"), "e2e passphrase").save(ACC)
     env = dict(os.environ, PYTHONPATH=str(fake), FAKE_BOARD=str(board),
-               TOTP_CLI_HOME=str(tmp_path / "cfg"), TOTP_CLI_PASSPHRASE="e2e passphrase")
+               TIMO_HOME=str(tmp_path / "cfg"), TIMO_PASSPHRASE="e2e passphrase")
 
     start = time.time()
     result = subprocess.run([sys.executable, os.path.join(SRC, "app.py"), "git", "--clear-after", "2"],
                             capture_output=True, text=True, env=env, timeout=20)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert time.time() - start < 2, "otpcli must not wait for the clear"
+    assert time.time() - start < 2, "timo must not wait for the clear"
     otp = result.stdout.splitlines()[1].split()[0]
     assert board.read_text() == otp
 

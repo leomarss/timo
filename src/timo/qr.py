@@ -1,7 +1,7 @@
 """QR codes drawn in the terminal with half-block characters (two rows per line)."""
 import segno
 
-from totp_cli.ui import RESET
+from timo.ui import RESET
 
 QUIET_ZONE = 4  # light border, in modules, that scanners need around the code
 # always black on bright white: scanners expect dark modules on a light background,

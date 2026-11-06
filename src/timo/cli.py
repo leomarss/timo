@@ -7,17 +7,17 @@ import argparse
 import os
 import sys
 
-from totp_cli import __version__, commands, ui
-from totp_cli import messages as msg
-from totp_cli.commands import Abort, Context
+from timo import __version__, commands, ui
+from timo import messages as msg
+from timo.commands import Abort, Context
 
 PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-INTRO = "otpcli · one-time passwords in your terminal"
+INTRO = "timo · your authenticator app, in the terminal, one word away"
 FOOTER = (
-    "Secrets live in ~/.config/totp-cli/ (set TOTP_CLI_HOME to use another folder).",
-    "Set TOTP_CLI_CLEAR_AFTER to change the default of --clear-after.",
-    'To search for a word that starts with "-": otpcli -- -word',
+    "Secrets live in ~/.config/timo/ (set TIMO_HOME to use another folder).",
+    "Set TIMO_CLEAR_AFTER to change the default of --clear-after.",
+    'To search for a word that starts with "-": timo -- -word',
 )
 
 EXPORT_FORMATS = ("setup-qr", "uri")
@@ -45,10 +45,10 @@ ACTIONS = {
 
 
 def config_dir():
-    if os.environ.get("TOTP_CLI_HOME"):
-        return os.environ["TOTP_CLI_HOME"]
+    if os.environ.get("TIMO_HOME"):
+        return os.environ["TIMO_HOME"]
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
-    return os.path.join(base, "totp-cli")
+    return os.path.join(base, "timo")
 
 
 def make_context():
@@ -118,7 +118,7 @@ class Parser(argparse.ArgumentParser):
 def _invocation(action):
     """("--restore", " NAME"): how an action is typed, split into name and placeholder."""
     if not action.option_strings:
-        return "otpcli", f" [{action.metavar}...]"
+        return "timo", f" [{action.metavar}...]"
     name = ", ".join(sorted(action.option_strings, key=len, reverse=True))
     if action.nargs == 0:
         return name, ""
@@ -128,8 +128,8 @@ def _invocation(action):
 
 def build_parser():
     parser = Parser(
-        prog="otpcli",
-        usage="otpcli [WORDS...] [--no-copy] [--clear-after SECONDS]\n       otpcli --<action> [options]",
+        prog="timo",
+        usage="timo [WORDS...] [--no-copy] [--clear-after SECONDS]\n       timo --<action> [options]",
         add_help=False,  # -h is declared below, in its section
         allow_abbrev=False,  # flags must be spelled out: --lis is not --list
     )

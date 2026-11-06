@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from totp_cli import commands
-from totp_cli.utils import list_backups
+from timo import commands
+from timo.utils import list_backups
 
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
 TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
@@ -38,12 +38,12 @@ TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
     (["--restore", "x"], "restore"),
 ])
 def test_flags_pick_the_action(argv, action):
-    from totp_cli.cli import parse
+    from timo.cli import parse
     assert parse(argv).action == action
 
 
 def test_query_words_are_kept():
-    from totp_cli.cli import parse
+    from timo.cli import parse
     args = parse(["--", "-weird", "edit"])
     assert args.query == ["-weird", "edit"]
 
@@ -61,7 +61,7 @@ def test_query_words_are_kept():
     ["--clear-after", "-1"], ["--clear-after", "soon"],
 ])
 def test_bad_combinations_are_rejected(argv):
-    from totp_cli.cli import parse
+    from timo.cli import parse
     with pytest.raises(SystemExit) as exc:
         parse(argv)
     assert exc.value.code == 2
@@ -94,7 +94,7 @@ def test_refuses_to_run_as_root(cli, monkeypatch):
 def test_missing_store_suggests_initialize(cli):
     code, out, err = cli.run("--list")
     assert code == 1
-    assert out == "" and "otpcli --initialize" in err
+    assert out == "" and "timo --initialize" in err
 
 
 def test_wrong_passphrase(cli, monkeypatch):
@@ -124,7 +124,7 @@ def test_get_no_match(cli):
 def test_get_with_no_accounts_suggests_initialize(cli):
     cli.store([])
     code, _, err = cli.run()
-    assert code == 1 and "No accounts yet" in err and "otpcli --initialize" in err
+    assert code == 1 and "No accounts yet" in err and "timo --initialize" in err
 
 
 @pytest.mark.parametrize("accounts, expected", [([], "Total          0   (0 issuers)"), (TWO, "Total          2   (2 issuers)")])
@@ -223,7 +223,7 @@ def test_get_options_before_or_after_words(cli, argv):
     ["github", "me", "--clear-after", "5"],
 ])
 def test_words_and_options_in_any_order(argv):
-    from totp_cli.cli import parse
+    from timo.cli import parse
     args = parse(argv)
     assert args.action == "get" and args.query == ["github", "me"]
 
@@ -231,7 +231,7 @@ def test_words_and_options_in_any_order(argv):
 def test_monitor_script_starts_watch_mode():
     import importlib.util
     import os
-    from totp_cli.cli import parse
+    from timo.cli import parse
     path = os.path.join(os.path.dirname(__file__), "..", "src", "monitor.py")
     spec = importlib.util.spec_from_file_location("monitor", path)
     monitor = importlib.util.module_from_spec(spec)
@@ -240,8 +240,8 @@ def test_monitor_script_starts_watch_mode():
 
 
 def test_version(cli, capsys):
-    from totp_cli import __version__
+    from timo import __version__
     with pytest.raises(SystemExit) as exc:
         cli.run("--version")
     assert exc.value.code == 0
-    assert capsys.readouterr().out.strip() == f"otpcli {__version__}"
+    assert capsys.readouterr().out.strip() == f"timo {__version__}"

@@ -6,8 +6,8 @@ from urllib.parse import quote
 import pytest
 
 from conftest import PASSPHRASE
-from totp_cli import commands, keystore
-from totp_cli.protobuf import migration_pb2
+from timo import commands, keystore
+from timo.protobuf import migration_pb2
 
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
 
@@ -31,7 +31,7 @@ class FakeKeyring:
 @pytest.fixture
 def typed(monkeypatch):
     """Simulate typing at getpass prompts; records each prompt shown."""
-    monkeypatch.delenv("TOTP_CLI_PASSPHRASE")
+    monkeypatch.delenv("TIMO_PASSPHRASE")
     prompts = []
     replies = []
 

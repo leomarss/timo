@@ -1,4 +1,4 @@
-"""How otpcli shows things. The texts themselves live in messages.py.
+"""How timo shows things. The texts themselves live in messages.py.
 
 stdout gets what the user asked for: codes, lists, stats, and "✓" lines
 confirming what was done. stderr gets everything else: errors ("✗"),
@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-from totp_cli import messages as msg
+from timo import messages as msg
 
 RESET = "\033[0m"
 BOLD = "\033[1m"

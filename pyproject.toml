@@ -3,8 +3,8 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "totp-cli"
-description = "Terminal one-time password (TOTP) manager with fzf, encrypted storage and clipboard support"
+name = "timo-otp"
+description = "timo (Time-based Identity Manager for OTPs): your authenticator app, in the terminal, one word away"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -24,19 +24,19 @@ dev = ["pytest>=8"]
 webcam = ["av>=14", "zxing-cpp>=2.3"]
 
 [project.scripts]
-otpcli = "totp_cli.cli:main"
+timo = "timo.cli:main"
 
 [project.urls]
-Source = "https://github.com/leomarss/totp-cli"
+Source = "https://github.com/leomarss/timo"
 
 [tool.setuptools.dynamic]
-version = {attr = "totp_cli.__version__"}
+version = {attr = "timo.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-"totp_cli.protobuf" = ["migration.proto"]
+"timo.protobuf" = ["migration.proto"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

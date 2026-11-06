@@ -1,7 +1,7 @@
 import base64
 from urllib.parse import unquote, urlsplit
 
-from totp_cli.protobuf import migration_pb2
+from timo.protobuf import migration_pb2
 
 
 ALGORITHMS = {

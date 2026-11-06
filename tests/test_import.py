@@ -7,9 +7,9 @@ from urllib.parse import quote
 
 import pytest
 
-from totp_cli.protobuf import migration_pb2
-from totp_cli.protobuf.migration import parse_migration_uri
-from totp_cli.utils import list_backups, merge_accounts
+from timo.protobuf import migration_pb2
+from timo.protobuf.migration import parse_migration_uri
+from timo.utils import list_backups, merge_accounts
 
 
 def undated(accounts):
@@ -57,7 +57,7 @@ def test_parse_rejects_missing_data():
 
 
 def run_import(cli, monkeypatch, *uris, answers=("y",)):
-    """Run 'otpcli --initialize', pasting each URI in turn."""
+    """Run 'timo --initialize', pasting each URI in turn."""
     monkeypatch.setattr(sys, "stdin", io.StringIO("".join(u + "\n" for u in uris)))
     return cli.run("--initialize", answers=answers)
 
@@ -184,7 +184,7 @@ def test_import_stamps_only_new_accounts(cli, monkeypatch):
     cli.store([{"issuer": "GitHub", "name": "me", "secret": b32(A[2])}])
     run_import(cli, monkeypatch, make_uri([A, B]))
     old, new = cli.load()
-    assert "date_added" not in old  # added before otpcli kept dates: left alone
+    assert "date_added" not in old  # added before timo kept dates: left alone
     added = datetime.fromisoformat(new["date_added"])
     assert added.tzinfo is not None
     assert abs((datetime.now(added.tzinfo) - added).total_seconds()) < 60

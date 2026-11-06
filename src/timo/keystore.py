@@ -2,15 +2,15 @@
 
 Every function here fails soft: if there is no keychain, it is locked, or it
 is one of the "keyrings" that actually store passwords in a plain file, the
-caller gets None/False and otpcli simply asks for the passphrase.
+caller gets None/False and timo simply asks for the passphrase.
 """
 import os
 
-SERVICE = "totp-cli"
+SERVICE = "timo"
 
 
 def account_for(secrets_path):
-    # one entry per secrets file, so separate stores (e.g. TOTP_CLI_HOME) don't clash
+    # one entry per secrets file, so separate stores (e.g. TIMO_HOME) don't clash
     return os.path.realpath(secrets_path)
 
 

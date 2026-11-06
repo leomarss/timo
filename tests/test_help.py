@@ -4,8 +4,8 @@ import types
 
 import pytest
 
-from totp_cli import ui
-from totp_cli.cli import build_parser
+from timo import ui
+from timo.cli import build_parser
 
 README = pathlib.Path(__file__).parent.parent / "README.md"
 
@@ -40,7 +40,7 @@ def test_options_of_one_action_are_indented_under_it():
     edit = lines.index(next(line for line in lines if line.startswith("  --edit ")))
     assert lines[edit + 1].startswith("      --backup ")
     assert lines[edit + 2].startswith("      --editor CMD ")
-    words = lines.index(next(line for line in lines if line.startswith("  otpcli [WORDS...]")))
+    words = lines.index(next(line for line in lines if line.startswith("  timo [WORDS...]")))
     assert lines[words + 1].startswith("      --no-copy ")
 
 
@@ -70,7 +70,7 @@ def test_fits_in_100_columns():
 
 def test_readme_usage_matches_the_help():
     block = re.search(r"## 🧪 Usage\n\n```\n(.*?)```", README.read_text(), re.S).group(1)
-    assert block == plain_help(), "README usage is out of date: paste the output of `otpcli --help | cat`"
+    assert block == plain_help(), "README usage is out of date: paste the output of `timo --help | cat`"
 
 
 @pytest.mark.parametrize("flag", ["-h", "--help"])

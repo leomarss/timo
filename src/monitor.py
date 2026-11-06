@@ -1,7 +1,7 @@
-# Kept for existing shortcuts; same as "otpcli --watch".
+# Kept for existing shortcuts; same as "timo --watch".
 import sys
 
-from totp_cli.cli import main
+from timo.cli import main
 
 ARGV = ["--watch"]
 

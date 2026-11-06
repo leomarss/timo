@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from totp_cli import clipboard, webcam
+from timo import clipboard, webcam
 
 from test_import import A, B, make_uri
 
@@ -64,7 +64,7 @@ def test_scan_without_the_extra_says_how_to_install_it(monkeypatch):
     with pytest.raises(webcam.Unavailable) as e:
         webcam.scan(lambda t: True)
     assert "PyAV" in e.value.message
-    assert any("pipx inject totp-cli av zxing-cpp" in hint for hint in e.value.hints)
+    assert any("pipx inject timo-otp av zxing-cpp" in hint for hint in e.value.hints)
 
 
 # --- the terminal preview ------------------------------------------------------------

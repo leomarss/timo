@@ -3,9 +3,9 @@ import sys
 
 import pytest
 
-from totp_cli import clipboard, commands
-from totp_cli.otpauth import normalize_secret, parse_otpauth_uri
-from totp_cli.utils import list_backups
+from timo import clipboard, commands
+from timo.otpauth import normalize_secret, parse_otpauth_uri
+from timo.utils import list_backups
 
 from test_import import undated
 
@@ -69,7 +69,7 @@ def no_clipboard(monkeypatch):
 
 
 def run_add(cli, monkeypatch, pasted=None, answers=("y",)):
-    """Run 'otpcli --add'; `pasted` is what goes into the hidden prompt."""
+    """Run 'timo --add'; `pasted` is what goes into the hidden prompt."""
     if pasted is not None:
         monkeypatch.setattr(sys, "stdin", io.StringIO(pasted + "\n"))
     return cli.run("--add", answers=answers)
@@ -128,7 +128,7 @@ def test_add_unreadable_qr_adds_nothing(cli, monkeypatch):
 def test_add_migration_export_points_to_initialize(cli, monkeypatch):
     code, _, err = run_add(cli, monkeypatch, "otpauth-migration://offline?data=abc")
     assert code == 1
-    assert "otpcli --initialize" in err
+    assert "timo --initialize" in err
 
 
 def test_add_rejects_bad_key(cli, monkeypatch):

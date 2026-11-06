@@ -16,7 +16,7 @@ import sys
 import time
 import zlib
 
-from totp_cli import messages as msg
+from timo import messages as msg
 
 MAX_PREVIEW_WIDTH = 100  # cells, for half blocks; wider only costs redraw time, it doesn't help aiming
 MAX_IMAGE_WIDTH = 640  # pixels sent per frame with the kitty protocol; the terminal scales it up

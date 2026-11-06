@@ -10,7 +10,7 @@ import time
 from datetime import datetime
 from dataclasses import dataclass, field
 
-from totp_cli.utils import (
+from timo.utils import (
     backup_time,
     create_backup,
     fzf_args,
@@ -27,13 +27,13 @@ from totp_cli.utils import (
     secret_key,
     validate_accounts,
 )
-from totp_cli import clipboard, fileio, keystore, ui
-from totp_cli import messages as msg
-from totp_cli.ui import plural
-from totp_cli.vault import Vault, VaultFormatError, WrongPassphrase
+from timo import clipboard, fileio, keystore, ui
+from timo import messages as msg
+from timo.ui import plural
+from timo.vault import Vault, VaultFormatError, WrongPassphrase
 
-PASSPHRASE_ENV = "TOTP_CLI_PASSPHRASE"
-PREVIEW_ENV = "TOTP_CLI_PREVIEW"
+PASSPHRASE_ENV = "TIMO_PASSPHRASE"
+PREVIEW_ENV = "TIMO_PREVIEW"
 MIN_PASSPHRASE = 8
 
 
@@ -82,7 +82,7 @@ def ask_new_passphrase():
 
 
 def _keychain_enabled(ctx):
-    # TOTP_CLI_PASSPHRASE means a script or test: leave the keychain alone
+    # TIMO_PASSPHRASE means a script or test: leave the keychain alone
     return os.environ.get(PASSPHRASE_ENV) is None and not os.path.exists(_no_keychain_marker(ctx))
 
 
@@ -259,7 +259,7 @@ def _pick_with_fzf(ctx, accounts, matches, prompt="Select OTP: ", show_date=Fals
     Returns the picked account's index in accounts, or None if they pressed Esc.
     """
     if sys.stdout.isatty():
-        sys.stdout.write("\33]0;TOTP CLI - Terminal One-Time Password\a")
+        sys.stdout.write("\33]0;timo - Time-based Identity Manager for OTPs\a")
         sys.stdout.flush()
 
     # the preview process gets upcoming codes through its environment, never secrets
@@ -571,7 +571,7 @@ def _show_qr_batch(accounts, skipped, batch_index, batch_size):
 
 
 def cmd_import(args, ctx):
-    from totp_cli.protobuf.migration import parse_migration_uri
+    from timo.protobuf.migration import parse_migration_uri
 
     use_qr = not ui.confirm(msg.PROMPT_HAVE_URI)
 
@@ -606,7 +606,7 @@ def cmd_import(args, ctx):
 
 def _read_single_account():
     """Ask for one account (pasted link or key, or a QR code); returns an account dict."""
-    from totp_cli.otpauth import normalize_secret, parse_otpauth_uri
+    from timo.otpauth import normalize_secret, parse_otpauth_uri
 
     pasted = ui.confirm(msg.PROMPT_HAVE_KEY)
     text = (read_hidden(msg.PROMPT_PASTE_KEY) if pasted else scan_qr_image() or "").strip()
@@ -674,12 +674,12 @@ def cmd_add(args, ctx):
 # --- export ------------------------------------------------------------------------
 
 ALT_SCREEN_ON = "\033[?1049h"  # QR codes go on the alternate screen, so they don't stay
-ALT_SCREEN_OFF = "\033[?1049l"  # in the scrollback once otpcli is done
+ALT_SCREEN_OFF = "\033[?1049l"  # in the scrollback once timo is done
 CLEAR_SCREEN = "\033[2J\033[H"
 
 
 def cmd_export(args, ctx):
-    from totp_cli.otpauth import to_otpauth_uri
+    from timo.otpauth import to_otpauth_uri
 
     _, accounts = open_vault(ctx)
     chosen = [acc for _, acc in _matching(accounts, args.query)]
@@ -717,8 +717,8 @@ def _write_export(path, text):
 
 
 def _show_setup_qrs(accounts):
-    from totp_cli import qr
-    from totp_cli.otpauth import to_otpauth_uri
+    from timo import qr
+    from timo.otpauth import to_otpauth_uri
 
     total = len(accounts)
     shown = 0

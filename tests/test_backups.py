@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from totp_cli.utils import create_backup, list_backups, resolve_backup_path
+from timo.utils import create_backup, list_backups, resolve_backup_path
 
 ACC = [{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}]
 OTHER = [{"issuer": "AWS", "name": "me", "secret": "GEZDGNBVGY3TQOJQ"}]
@@ -83,7 +83,7 @@ def test_restore_backup_made_with_older_passphrase(cli, monkeypatch):
     name = list_backups(str(cli.backups))[0]
     cli.store(OTHER)  # current store uses the test passphrase
 
-    from totp_cli import commands
+    from timo import commands
     asked = []
     real_ask = commands._ask
 

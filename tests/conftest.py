@@ -11,21 +11,21 @@ PASSPHRASE = "test passphrase"
 
 @pytest.fixture
 def cli(tmp_path, monkeypatch, capsys):
-    """Run otpcli's main() against a temporary config folder.
+    """Run timo's main() against a temporary config folder.
 
     Returns an object with run(*argv, answers=[...]) -> (exit_code, stdout, stderr),
     plus the paths it uses. Prompts answered by input() come from `answers`.
     """
-    from totp_cli import cli as cli_module
-    from totp_cli import vault
+    from timo import cli as cli_module
+    from timo import vault
 
-    from totp_cli import keystore
+    from timo import keystore
 
     monkeypatch.setattr(vault, "SCRYPT_N", 2**10)  # fast tests
     monkeypatch.setattr(keystore, "_backend", lambda: None)  # never touch the real keychain
     home = tmp_path / "config"
-    monkeypatch.setenv("TOTP_CLI_HOME", str(home))
-    monkeypatch.setenv("TOTP_CLI_PASSPHRASE", PASSPHRASE)
+    monkeypatch.setenv("TIMO_HOME", str(home))
+    monkeypatch.setenv("TIMO_PASSPHRASE", PASSPHRASE)
     monkeypatch.setattr(os, "geteuid", lambda: 1000)
 
     class Runner:

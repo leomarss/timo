@@ -10,8 +10,8 @@ import sys
 from datetime import datetime
 from collections import Counter
 
-from totp_cli import fileio, ui
-from totp_cli import messages as msg
+from timo import fileio, ui
+from timo import messages as msg
 
 
 DIGESTS = {
@@ -222,7 +222,7 @@ def scan_qr_image(seen=()):
 
 
 def scan_qr_webcam(seen=()):
-    from totp_cli import webcam
+    from timo import webcam
 
     ui.note(msg.SCANNING_WEBCAM)
     try:

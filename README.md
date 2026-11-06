@@ -1,4 +1,8 @@
-# TOTP CLI - Terminal One-Time Password
+# timo
+
+**Your authenticator app, in the terminal, one word away.**
+
+*timo: Time-based Identity Manager for OTPs*
 
 A powerful, terminal-based One-Time Password (TOTP) manager written in Python. Designed for speed, security, and flexibility, with clipboard support, previews, and backup management.
 
@@ -29,12 +33,12 @@ A powerful, terminal-based One-Time Password (TOTP) manager written in Python. D
 ## 🔧 Setup
 
 ```bash
-pipx install git+https://github.com/leomarss/totp-cli.git
+pipx install git+https://github.com/leomarss/timo.git
 # or, from a local clone:
-pipx install ~/totp-cli
+pipx install ~/timo
 ```
 
-This puts an `otpcli` command on your `PATH`, in its own isolated environment. To update later: `pipx upgrade totp-cli` (or `pipx install --force ~/totp-cli` for a local clone).
+This puts a `timo` command on your `PATH`, in its own isolated environment. To update later: `pipx upgrade timo-otp` (or `pipx install --force ~/timo` for a local clone).
 
 Make sure `fzf` is installed:
 ```bash
@@ -56,30 +60,30 @@ If `fzf` is installed but not found by the script, you can set its path manually
 export FZF_PATH=$(dirname $(which fzf))
 ```
 
-To scan QR codes with the webcam, add PyAV and zxing-cpp to otpcli's environment:
+To scan QR codes with the webcam, add PyAV and zxing-cpp to timo's environment:
 ```bash
-pipx inject totp-cli av zxing-cpp
+pipx inject timo-otp av zxing-cpp
 # or install with the extra from the start:
-pipx install 'totp-cli[webcam] @ git+https://github.com/leomarss/totp-cli.git'
+pipx install 'timo-otp[webcam] @ git+https://github.com/leomarss/timo.git'
 ```
 
 Then add your accounts:
 
 ```bash
-otpcli --initialize
+timo --initialize
 ```
 
 The first time, you choose a passphrase. It encrypts your secrets. **If you forget it, the secrets cannot be recovered**, so keep your Google Authenticator export (or another copy) somewhere safe.
 
-After the first unlock, otpcli saves the passphrase in your OS keychain and stops asking (see [Keychain](#-keychain)).
+After the first unlock, timo saves the passphrase in your OS keychain and stops asking (see [Keychain](#-keychain)).
 
 ## 🧪 Usage
 
 ```
-otpcli · one-time passwords in your terminal
+timo · your authenticator app, in the terminal, one word away
 
 Copy a code
-  otpcli [WORDS...]           copy the code of the account matching all words (none: pick with fzf)
+  timo [WORDS...]             copy the code of the account matching all words (none: pick with fzf)
       --no-copy               print the code, don't copy it
       --clear-after SECONDS   clear the clipboard after SECONDS, 0 = never (default 45)
 
@@ -115,9 +119,9 @@ Other
   --version                   show the installed version
   --help, -h                  show this help
 
-Secrets live in ~/.config/totp-cli/ (set TOTP_CLI_HOME to use another folder).
-Set TOTP_CLI_CLEAR_AFTER to change the default of --clear-after.
-To search for a word that starts with "-": otpcli -- -word
+Secrets live in ~/.config/timo/ (set TIMO_HOME to use another folder).
+Set TIMO_CLEAR_AFTER to change the default of --clear-after.
+To search for a word that starts with "-": timo -- -word
 ```
 
 Every option starts with `-` or `--`, and plain words are always a search, so an account can be called "edit" or "list". Options must be spelled out in full, and only one action can be used at a time.
@@ -126,36 +130,36 @@ Yes/no questions take a single key: `y` or `n`, Enter for the default (the capit
 
 ### Importing
 
-`otpcli --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, scan it with the webcam (leave the image path empty), or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full; with the webcam, show each code in turn and the one already read is ignored. Importing adds to your existing accounts (after a backup) and skips accounts you already have: an account counts as the same when its secret key matches, whatever its label (so renaming one with `--edit` doesn't make it come back). Counter-based (HOTP) accounts are not supported and are skipped with a warning.
+`timo --initialize` lets you scan a QR code image (e.g. `/home/user/Downloads/otp.png`) with `zbarimg`, scan it with the webcam (leave the image path empty), or paste the `otpauth-migration://` string (input is hidden). Exports split across several QR codes are imported in full; with the webcam, show each code in turn and the one already read is ignored. Importing adds to your existing accounts (after a backup) and skips accounts you already have: an account counts as the same when its secret key matches, whatever its label (so renaming one with `--edit` doesn't make it come back). Counter-based (HOTP) accounts are not supported and are skipped with a warning.
 
 ### Adding an account
 
-`otpcli --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page) or with the webcam (leave the image path empty), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, otpcli asks for the issuer and account name.
+`timo --add` adds a single account when you turn on two-factor authentication on a site, so you don't need Google Authenticator at all. Scan the setup QR code from an image (e.g. a screenshot of the setup page) or with the webcam (leave the image path empty), or paste the `otpauth://` link or the secret key the site shows under "can't scan the code?" (input is hidden; spaces and dashes are fine). For a bare key, timo asks for the issuer and account name.
 
-The current code is shown and copied right away, since most sites ask for one to finish the setup. If the key is already there under any label, nothing changes. If the account already exists with a different key (you reset 2FA on that site), otpcli asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
+The current code is shown and copied right away, since most sites ask for one to finish the setup. If the key is already there under any label, nothing changes. If the account already exists with a different key (you reset 2FA on that site), timo asks before replacing it and keeps your label. Only 30-second codes are supported, and a Google Authenticator export belongs in `--initialize`.
 
 ### Exporting
 
-`otpcli --export` moves your accounts to another authenticator app or password manager. Add search words to export only some (`otpcli --export github`).
+`timo --export` moves your accounts to another authenticator app or password manager. Add search words to export only some (`timo --export github`).
 
-- **In a terminal**, it shows one setup QR code per account, the same kind a site shows when you turn on 2FA, so any authenticator app can scan it. Press Enter for the next one, `n` to stop. The codes are drawn on a separate screen that is cleared when otpcli finishes, so they don't stay in your scrollback.
-- **`--format uri`** gives one `otpauth://` link per line, which apps like Aegis and Ente Auth import as a text file in one go, and which most password managers accept in their TOTP field. Piped or redirected (`otpcli --export > accounts.txt`), this is the default. In a terminal, otpcli asks before showing secret keys on screen.
+- **In a terminal**, it shows one setup QR code per account, the same kind a site shows when you turn on 2FA, so any authenticator app can scan it. Press Enter for the next one, `n` to stop. The codes are drawn on a separate screen that is cleared when timo finishes, so they don't stay in your scrollback.
+- **`--format uri`** gives one `otpauth://` link per line, which apps like Aegis and Ente Auth import as a text file in one go, and which most password managers accept in their TOTP field. Piped or redirected (`timo --export > accounts.txt`), this is the default. In a terminal, timo asks before showing secret keys on screen.
 - **`--output FILE`** writes the links to a new file readable only by you. It never overwrites an existing file.
 
 Exported links and files are **not encrypted**: delete them once the other app has imported the accounts.
 
 ### Removing an account
 
-`otpcli --remove` lets you pick the account with `fzf`. Without `fzf`, it prints a numbered list and you type the number (Enter cancels). Either way it asks `Remove GitHub (me)? [y/N]` before deleting anything, and the previous secrets are backed up first, so `otpcli --restore` can bring the account back.
+`timo --remove` lets you pick the account with `fzf`. Without `fzf`, it prints a numbered list and you type the number (Enter cancels). Either way it asks `Remove GitHub (me)? [y/N]` before deleting anything, and the previous secrets are backed up first, so `timo --restore` can bring the account back.
 
 ### Editing
 
-`otpcli --edit` decrypts your accounts into a temporary file (inside `~/.config/totp-cli/`, readable only by you), opens your editor, checks the result and re-encrypts it. The temporary file is deleted afterwards. If the edited file isn't valid, you can fix it or discard the changes.
+`timo --edit` decrypts your accounts into a temporary file (inside `~/.config/timo/`, readable only by you), opens your editor, checks the result and re-encrypts it. The temporary file is deleted afterwards. If the edited file isn't valid, you can fix it or discard the changes.
 
 ## 🧾 Example Output
 
 ```
-$ otpcli github
+$ timo github
 ╭─ GitHub (you@example.com) ────────────────────╮
 │  482 913   17s left · copied, clears in 45s   │
 ╰───────────────────────────────────────────────╯
@@ -164,7 +168,7 @@ $ otpcli github
 The code is shown as `482 913` to make it easier to read; the clipboard gets `482913`.
 
 ```
-$ otpcli --stats
+$ timo --stats
  Issuer     Accounts
  ─────────  ────────
  GitHub            2
@@ -174,16 +178,16 @@ $ otpcli --stats
  ─────────  ────────
  Total             6   (4 issuers)
 
-$ otpcli --list-backups
+$ timo --list-backups
  Backup                               Age
  ───────────────────────────────────  ───────
  secrets.enc.bak.2026-10-12_18-30-00  3 weeks
  secrets.enc.bak.2026-11-01_09-02-41  4 days
 
-$ otpcli --backup
-✓ Backup saved  ~/.config/totp-cli/backups/secrets.enc.bak.2026-11-05_11-20-03
+$ timo --backup
+✓ Backup saved  ~/.config/timo/backups/secrets.enc.bak.2026-11-05_11-20-03
 
-$ otpcli gihub
+$ timo gihub
 ✗ No account matches "gihub"
 ```
 
@@ -191,10 +195,10 @@ In a terminal the code is coloured by the time it has left (green, then yellow, 
 
 ## 🔐 Storage
 
-Everything lives in `~/.config/totp-cli/` (or `$XDG_CONFIG_HOME/totp-cli/`, or the folder in `$TOTP_CLI_HOME`):
+Everything lives in `~/.config/timo/` (or `$XDG_CONFIG_HOME/timo/`, or the folder in `$TIMO_HOME`):
 
 ```
-~/.config/totp-cli/
+~/.config/timo/
 ├── secrets.enc                  # Encrypted accounts
 └── backups/
     └── secrets.enc.bak.YYYY-MM-DD_HH-MM-SS
@@ -202,7 +206,7 @@ Everything lives in `~/.config/totp-cli/` (or `$XDG_CONFIG_HOME/totp-cli/`, or t
 
 `secrets.enc` is encrypted with AES-256-GCM using a key derived from your passphrase with scrypt. The folder is readable only by you (`700`), the files too (`600`). Every save and backup is written to a temporary file, flushed to disk, and only then renamed into place, so a crash or full disk never leaves a half-written file.
 
-Decrypted (as shown by `otpcli --edit`), the accounts are a JSON list:
+Decrypted (as shown by `timo --edit`), the accounts are a JSON list:
 
 ```json
 [
@@ -230,61 +234,61 @@ Codes refresh every 30 seconds.
 
 ### The fzf preview
 
-The preview runs as a separate process, so it can't ask for your passphrase. otpcli hands it only the upcoming codes (10 minutes' worth) through an environment variable, which only your user can read. It never gets your secrets or passphrase. If the picker stays open longer, the preview asks you to reopen otpcli.
+The preview runs as a separate process, so it can't ask for your passphrase. timo hands it only the upcoming codes (10 minutes' worth) through an environment variable, which only your user can read. It never gets your secrets or passphrase. If the picker stays open longer, the preview asks you to reopen timo.
 
 ### Clipboard
 
-After copying a code, otpcli clears the clipboard 45 seconds later, but only if it still holds that code, so anything you copied since is left alone. otpcli doesn't wait for this: a small background process does it. Change the delay with `--clear-after SECONDS` or `export TOTP_CLI_CLEAR_AFTER=SECONDS`; `0` turns clearing off.
+After copying a code, timo clears the clipboard 45 seconds later, but only if it still holds that code, so anything you copied since is left alone. timo doesn't wait for this: a small background process does it. Change the delay with `--clear-after SECONDS` or `export TIMO_CLEAR_AFTER=SECONDS`; `0` turns clearing off.
 
 ### Scripting
 
-Set `TOTP_CLI_PASSPHRASE` to skip the prompt, e.g. in a script. Anything running as your user can read a process's environment, so only use it where that's acceptable. When it is set, otpcli doesn't read or write the keychain.
+Set `TIMO_PASSPHRASE` to skip the prompt, e.g. in a script. Anything running as your user can read a process's environment, so only use it where that's acceptable. When it is set, timo doesn't read or write the keychain.
 
 ## 🔑 Keychain
 
-The first time you unlock, otpcli saves the passphrase in your OS keychain (entry `totp-cli`) and doesn't ask again on that machine:
+The first time you unlock, timo saves the passphrase in your OS keychain (entry `timo`) and doesn't ask again on that machine:
 
 - **macOS:** Keychain. macOS may ask once to allow Python access.
 - **Linux desktop:** GNOME Keyring / KWallet (Secret Service), normally unlocked when you log in.
-- **No keychain** (SSH sessions, headless servers, WSL, containers): otpcli asks for the passphrase each time, as before.
+- **No keychain** (SSH sessions, headless servers, WSL, containers): timo asks for the passphrase each time, as before.
 
-otpcli never uses "keyrings" that store passwords in a plain file. If the saved passphrase stops working (e.g. after `otpcli --passwd` elsewhere), otpcli asks again and updates it. `otpcli --passwd` updates it too.
+timo never uses "keyrings" that store passwords in a plain file. If the saved passphrase stops working (e.g. after `timo --passwd` elsewhere), timo asks again and updates it. `timo --passwd` updates it too.
 
-Anyone using your unlocked session can get codes without the passphrase. To go back to typing it every time, run `otpcli --forget`; `otpcli --remember` turns it back on.
+Anyone using your unlocked session can get codes without the passphrase. To go back to typing it every time, run `timo --forget`; `timo --remember` turns it back on.
 
 ## 🧯 Backup and Restore
 
-- Backups are encrypted copies, kept in `~/.config/totp-cli/backups/`
+- Backups are encrypted copies, kept in `~/.config/timo/backups/`
 - `import`, `edit --backup`, `passwd` and `backup restore` back up automatically before changing anything
-- Backups keep the passphrase they were made with. Restoring one made before `otpcli --passwd` asks for that older passphrase and re-encrypts it with the current one.
+- Backups keep the passphrase they were made with. Restoring one made before `timo --passwd` asks for that older passphrase and re-encrypts it with the current one.
 
 ```bash
-otpcli --list-backups
-otpcli --restore secrets.enc.bak.2025-04-18_23-30-00
+timo --list-backups
+timo --restore secrets.enc.bak.2025-04-18_23-30-00
 ```
 
 ## 🛠️ Development
 
 ```bash
-cd ~/totp-cli
+cd ~/timo
 python3 -m venv env
 env/bin/pip install --upgrade pip   # editable installs need pip 21.3+
 env/bin/pip install -e '.[dev]'
 env/bin/python -m pytest
 ```
 
-`env/bin/otpcli` then runs your working copy. `python src/app.py` works too.
+`env/bin/timo` then runs your working copy. `python src/app.py` works too.
 
 ## 📁 File Structure
 
 ```
-totp-cli/
+timo/
 ├── pyproject.toml               # Package metadata and dependencies
 ├── src/
 │   ├── app.py                   # Run from a checkout without installing
-│   ├── monitor.py               # Same as "otpcli --watch"
-│   └── totp_cli/
-│       ├── cli.py               # Argument parsing, "otpcli" entry point
+│   ├── monitor.py               # Same as "timo --watch"
+│   └── timo/
+│       ├── cli.py               # Argument parsing, "timo" entry point
 │       ├── commands.py          # Command handlers
 │       ├── vault.py             # Encrypted storage
 │       ├── keystore.py          # OS keychain for the passphrase
@@ -306,7 +310,7 @@ totp-cli/
 ## 📌 Credits
 
 This project uses [`zbarimg`](https://github.com/mchehab/zbar) to scan QR codes from images.  
-Make sure it is installed to use `otpcli --initialize` or `otpcli --add` with QR images.  
+Make sure it is installed to use `timo --initialize` or `timo --add` with QR images.  
 Webcam scanning uses [PyAV](https://github.com/PyAV-Org/PyAV) to read the camera and [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp) to decode the QR code, on macOS and Linux. A mirrored preview of the camera is shown in the terminal itself: as a real image in terminals with the kitty graphics protocol (kitty, Ghostty, WezTerm), otherwise drawn with block characters (in colour where the terminal supports 24-bit colour, in grey otherwise); frames stay in memory and are never saved. On macOS, the first scan asks you to allow your terminal app to use the camera. Press Esc or q to cancel.
 
 

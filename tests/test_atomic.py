@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from totp_cli import fileio
-from totp_cli.utils import BACKUP_PREFIX, create_backup, list_backups
+from timo import fileio
+from timo.utils import BACKUP_PREFIX, create_backup, list_backups
 
 
 def listing(path):

@@ -7,7 +7,7 @@ import types
 
 import pytest
 
-from totp_cli import ui
+from timo import ui
 
 
 class FakeTTY(io.StringIO):

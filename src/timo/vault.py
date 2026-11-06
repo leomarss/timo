@@ -13,13 +13,13 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
-from totp_cli import fileio
+from timo import fileio
 
 FORMAT_VERSION = 1
 SCRYPT_N = 2**17  # about 0.2s per unlock on a modern laptop
 SCRYPT_R = 8
 SCRYPT_P = 1
-AAD = b"totp-cli secrets v1"
+AAD = b"timo secrets v1"
 
 
 class WrongPassphrase(Exception):
@@ -68,7 +68,7 @@ def decrypt(blob, passphrase):
     except VaultFormatError:
         raise
     except (ValueError, KeyError, TypeError) as e:
-        raise VaultFormatError(f"Not a totp-cli secrets file: {e}") from e
+        raise VaultFormatError(f"Not a timo secrets file: {e}") from e
 
     key = _derive(passphrase, salt, n, r, p)
     try:

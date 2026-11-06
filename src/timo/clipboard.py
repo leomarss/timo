@@ -1,7 +1,7 @@
 """Copy codes to the clipboard and clear them again after a delay.
 
 Clearing runs in a small detached process (this file, run as a script), so
-otpcli itself exits immediately. The code is passed on stdin rather than the
+timo itself exits immediately. The code is passed on stdin rather than the
 command line, where other users could see it with ps. The clipboard is only
 cleared if it still holds the code, so anything copied since is left alone.
 """
@@ -11,7 +11,7 @@ import sys
 import time
 
 DEFAULT_CLEAR_AFTER = 45  # seconds, same default as the `pass` password manager
-CLEAR_AFTER_ENV = "TOTP_CLI_CLEAR_AFTER"
+CLEAR_AFTER_ENV = "TIMO_CLEAR_AFTER"
 
 
 def copy(text):
@@ -30,7 +30,7 @@ def schedule_clear(code, seconds):
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            start_new_session=True,  # survives otpcli exiting and Ctrl-C in the terminal
+            start_new_session=True,  # survives timo exiting and Ctrl-C in the terminal
             close_fds=True,
         )
         proc.stdin.write(code.encode())

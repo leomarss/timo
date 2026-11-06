@@ -2,8 +2,8 @@ import subprocess
 
 import pytest
 
-from totp_cli import commands
-from totp_cli.utils import list_backups
+from timo import commands
+from timo.utils import list_backups
 
 THREE = [
     {"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"},

@@ -4,8 +4,8 @@ import sys
 import pytest
 import segno
 
-from totp_cli import qr, ui
-from totp_cli.otpauth import parse_otpauth_uri, to_otpauth_uri
+from timo import qr, ui
+from timo.otpauth import parse_otpauth_uri, to_otpauth_uri
 
 SECRET = "JBSWY3DPEHPK3PXP"
 OTHER = "GEZDGNBVGY3TQOJQ"

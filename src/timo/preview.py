@@ -1,7 +1,7 @@
 """fzf preview: show the code for the highlighted account.
 
 Runs as a separate process, so it never sees the secrets or the passphrase.
-otpcli hands it the upcoming codes for each account in TOTP_CLI_PREVIEW
+timo hands it the upcoming codes for each account in TIMO_PREVIEW
 (an environment variable, readable only by the same user), and this script
 picks the one for the current 30-second window.
 """
@@ -27,13 +27,13 @@ def get_color(seconds):
 
 def main(argv, environ, now):
     try:
-        data = json.loads(environ["TOTP_CLI_PREVIEW"])
+        data = json.loads(environ["TIMO_PREVIEW"])
         codes = data["codes"][argv[1]]
     except (KeyError, IndexError, ValueError):
         return ""
     window = (int(now) - data["start"]) // data["interval"]
     if not 0 <= window < len(codes):
-        return "Codes expired: close and reopen otpcli."
+        return "Codes expired: close and reopen timo."
     seconds_left = data["start"] + (window + 1) * data["interval"] - int(now)
     color = get_color(seconds_left)
     code = codes[window]

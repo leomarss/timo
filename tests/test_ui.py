@@ -5,7 +5,7 @@ import types
 
 import pytest
 
-from totp_cli import messages, ui
+from timo import messages, ui
 
 PACKAGE = pathlib.Path(ui.__file__).parent
 
