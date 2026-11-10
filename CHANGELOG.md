@@ -4,6 +4,8 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-11-10
+
 ### Removed
 
 - `src/app.py` and `src/monitor.py`, the old launch scripts. Use the `timo` command (or `python -m timo`, and `timo --watch` for the monitor).
@@ -96,7 +98,8 @@ First release as timo (Time-based Identity Manager for OTPs), previously `totp-c
 - Crash-safe writes for secrets and backups.
 - The `fzf` preview works with paths that contain spaces.
 
-[Unreleased]: https://github.com/leomarss/timo/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/leomarss/timo/compare/v3.0.1...HEAD
+[3.0.1]: https://github.com/leomarss/timo/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/leomarss/timo/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/leomarss/timo/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/leomarss/timo/compare/v1.0.3...v2.0.0
