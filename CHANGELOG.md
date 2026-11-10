@@ -8,6 +8,10 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 - `src/app.py` and `src/monitor.py`, the old launch scripts. Use the `timo` command (or `python -m timo`, and `timo --watch` for the monitor).
 
+### Fixed
+
+- `--watch` with no accounts stops with "No accounts yet" and how to add some, instead of showing an empty box.
+
 ## [3.0.0] - 2026-11-10
 
 ### Changed

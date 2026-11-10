@@ -318,6 +318,8 @@ def _date_added(acc):
 
 def cmd_watch(args, ctx):
     _, accounts = open_vault(ctx)
+    if not accounts:
+        raise Abort(msg.NO_ACCOUNTS, msg.NO_SECRETS_HINT)
     try:
         while True:
             sys.stdout.write("\033[2J\033[H")

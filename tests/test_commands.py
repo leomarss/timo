@@ -124,6 +124,13 @@ def test_get_with_no_accounts_suggests_initialize(cli):
     assert code == 1 and "No accounts yet" in err and "timo --initialize" in err
 
 
+def test_watch_with_no_accounts_suggests_initialize(cli):
+    cli.store([])
+    code, out, err = cli.run("--watch")
+    assert code == 1 and out == ""
+    assert "No accounts yet" in err and "timo --initialize" in err
+
+
 # --- edit -------------------------------------------------------------------------
 # questions in order: issuer, name, secret key (hidden), then save?
 
