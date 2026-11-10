@@ -124,9 +124,6 @@ def test_get_with_no_accounts_suggests_initialize(cli):
     assert code == 1 and "No accounts yet" in err and "timo --initialize" in err
 
 
-
-
-
 # --- edit -------------------------------------------------------------------------
 # questions in order: issuer, name, secret key (hidden), then save?
 
@@ -273,17 +270,6 @@ def test_words_and_options_in_any_order(argv):
     from timo.cli import parse
     args = parse(argv)
     assert args.action == "get" and args.query == ["github", "me"]
-
-
-def test_monitor_script_starts_watch_mode():
-    import importlib.util
-    import os
-    from timo.cli import parse
-    path = os.path.join(os.path.dirname(__file__), "..", "src", "monitor.py")
-    spec = importlib.util.spec_from_file_location("monitor", path)
-    monitor = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(monitor)
-    assert parse(monitor.ARGV).action == "watch"
 
 
 def test_version(cli, capsys):

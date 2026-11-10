@@ -48,11 +48,11 @@ def app(tmp_path):
     fzf.write_text(FAKE_FZF.format(python=sys.executable))
     fzf.chmod(fzf.stat().st_mode | stat.S_IEXEC)
     record = tmp_path / "record.json"
-    env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+    env = dict(os.environ, PYTHONPATH=SRC, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
                TIMO_HOME=str(home), TIMO_PASSPHRASE=PASSPHRASE, RECORD=str(record))
 
     def run(*argv, pick):
-        result = subprocess.run([sys.executable, os.path.join(SRC, "app.py"), *argv],
+        result = subprocess.run([sys.executable, "-m", "timo", *argv],
                                 capture_output=True, text=True, env=dict(env, PICK=str(pick)))
         return result, json.loads(record.read_text())
 

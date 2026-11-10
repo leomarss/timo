@@ -4,6 +4,10 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Removed
+
+- `src/app.py` and `src/monitor.py`, the old launch scripts. Use the `timo` command (or `python -m timo`, and `timo --watch` for the monitor).
+
 ## [3.0.0] - 2026-11-10
 
 ### Changed

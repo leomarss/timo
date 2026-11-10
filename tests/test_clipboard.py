@@ -135,11 +135,11 @@ def test_background_clear_end_to_end(tmp_path):
     )
     from timo.vault import Vault
     Vault(str(tmp_path / "cfg" / "secrets.enc"), "e2e passphrase").save(ACC)
-    env = dict(os.environ, PYTHONPATH=str(fake), FAKE_BOARD=str(board),
+    env = dict(os.environ, PYTHONPATH=f"{fake}{os.pathsep}{SRC}", FAKE_BOARD=str(board),
                TIMO_HOME=str(tmp_path / "cfg"), TIMO_PASSPHRASE="e2e passphrase")
 
     start = time.time()
-    result = subprocess.run([sys.executable, os.path.join(SRC, "app.py"), "git", "--clear-after", "2"],
+    result = subprocess.run([sys.executable, "-m", "timo", "git", "--clear-after", "2"],
                             capture_output=True, text=True, env=env, timeout=20)
     assert result.returncode == 0, result.stdout + result.stderr
     assert time.time() - start < 2, "timo must not wait for the clear"
