@@ -4,6 +4,8 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-10
+
 ### Changed
 
 - `--list` ends with a total: how many accounts and issuers you have.
@@ -86,7 +88,8 @@ First release as timo (Time-based Identity Manager for OTPs), previously `totp-c
 - Crash-safe writes for secrets and backups.
 - The `fzf` preview works with paths that contain spaces.
 
-[Unreleased]: https://github.com/leomarss/timo/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/leomarss/timo/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/leomarss/timo/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/leomarss/timo/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/leomarss/timo/compare/v1.0.3...v2.0.0
 [1.0.3]: https://github.com/leomarss/timo/compare/v1.0.2...v1.0.3
