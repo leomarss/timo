@@ -8,7 +8,6 @@ import shlex
 import shutil
 import sys
 from datetime import datetime
-from collections import Counter
 
 from timo import fileio, ui
 from timo import messages as msg
@@ -158,13 +157,6 @@ def fzf_args(python_path, preview_script, prompt="Select OTP: "):
         "--preview", f"{shlex.quote(python_path)} {shlex.quote(preview_script)} {{1}}",
         "--preview-window=down:1:wrap",
     ]
-
-
-def get_stats(accounts):
-    total = len(accounts)
-    issuers = [acc.get("issuer", "Unknown") for acc in accounts]
-    issuer_counts = Counter(issuers)
-    return total, issuer_counts
 
 
 def scan_qr_image(seen=()):

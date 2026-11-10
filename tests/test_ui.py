@@ -166,10 +166,24 @@ def test_list_shows_when_accounts_were_added(cli, terminal):
         {"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"},  # from before date_added
     ])
     out, _ = terminal("--list")
-    header, rule, first, second = out.splitlines()
+    header, rule, first, second, _, total = out.splitlines()
     assert header.split() == ["#", "Issuer", "Account", "Added"]
     assert first.split() == ["1", "GitHub", "me", "2026-11-05"]
     assert second.split() == ["2", "AWS", "ops", "-"]
+    assert total.split() == ["Total", "2", "accounts", "(2", "issuers)"]
+
+
+@pytest.mark.parametrize("accounts, total", [
+    ([], "Total 0 accounts (0 issuers)"),
+    ([{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"}], "Total 1 account (1 issuer)"),
+    ([{"issuer": "GitHub", "name": "me", "secret": "JBSWY3DPEHPK3PXP"},
+      {"issuer": "GitHub", "name": "work", "secret": "MFRGGZDFMZTWQ2LK"},
+      {"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}], "Total 3 accounts (2 issuers)"),
+])
+def test_list_ends_with_the_totals(cli, terminal, accounts, total):
+    cli.store(accounts)
+    out, _ = terminal("--list")
+    assert out.splitlines()[-1].split() == total.split()
 
 
 def test_list_piped_stays_one_label_per_line(cli):

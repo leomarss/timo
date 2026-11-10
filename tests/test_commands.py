@@ -18,7 +18,6 @@ TWO = ACC + [{"issuer": "AWS", "name": "ops", "secret": "GEZDGNBVGY3TQOJQ"}]
     (["list", "--no-copy"], "get"),
     (["--", "-weird"], "get"),
     (["--list"], "list"),
-    (["--stats"], "stats"),
     (["--watch"], "watch"),
     (["--edit"], "edit"),
     (["--edit", "github", "me"], "edit"),
@@ -47,12 +46,12 @@ def test_query_words_are_kept():
 
 @pytest.mark.parametrize("argv", [
     ["--listxyz"], ["--backupfoo"], ["--lis"], ["--rem", "x"], ["--editor"],  # unknown, abbreviated, missing value
-    ["--list", "--stats"], ["--edit", "--list"], ["--restore", "x", "--backup"],  # two actions
+    ["--list", "--watch"], ["--edit", "--list"], ["--restore", "x", "--backup"],  # two actions
     ["github", "--list"],  # search words with an action
-    ["--list", "--no-copy"], ["--stats", "--clear-after", "5"],  # get-only options
+    ["--list", "--no-copy"], ["--watch", "--clear-after", "5"],  # get-only options
     ["--editor", "vim"], ["--edit", "--editor=vim"],  # removed: --edit is guided now
     ["--edit", "--backup"],  # --edit always backs up
-    ["--migrate"], ["--yes"],  # removed
+    ["--migrate"], ["--yes"], ["--stats"],  # removed
     ["--remove-all-backups", "--remove-backups", "x"], ["--remove-backups"],
     ["--remove", "github"],  # --remove picks from a list, it takes no words
     ["--remove-all"], ["--backup", "--remove-all-backups"],  # old backup flags
@@ -125,11 +124,7 @@ def test_get_with_no_accounts_suggests_initialize(cli):
     assert code == 1 and "No accounts yet" in err and "timo --initialize" in err
 
 
-@pytest.mark.parametrize("accounts, expected", [([], "Total          0   (0 issuers)"), (TWO, "Total          2   (2 issuers)")])
-def test_stats(cli, accounts, expected):
-    cli.store(accounts)
-    code, out, _ = cli.run("--stats")
-    assert code == 0 and expected in out
+
 
 
 # --- edit -------------------------------------------------------------------------

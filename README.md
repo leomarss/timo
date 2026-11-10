@@ -74,7 +74,7 @@ timo                 # pick an account with fzf
 | Command | What it does |
 |---|---|
 | `timo WORDS` | Copy the code of the matching account (`--no-copy` to just print it) |
-| `--list` · `--stats` | List accounts, or count them per issuer |
+| `--list` | List accounts and how many there are |
 | `--watch` | Show every code, live |
 | `--add` · `--remove` · `--edit [WORDS]` | Add, remove, rename an account or fix its key |
 | `--export [WORDS]` | Move accounts to another app (`--format uri` for links) |

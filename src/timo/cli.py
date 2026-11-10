@@ -25,7 +25,6 @@ EXPORT_FORMATS = ("setup-qr", "uri")
 # action name -> (flag, handler)
 ACTIONS = {
     "list": ("--list", commands.cmd_list),
-    "stats": ("--stats", commands.cmd_stats),
     "watch": ("--watch", commands.cmd_watch),
     "edit": ("--edit", commands.cmd_edit),
     "initialize": ("--initialize", commands.cmd_import),
@@ -139,8 +138,7 @@ def build_parser():
            help="clear the clipboard after SECONDS, 0 = never (default 45)")
 
     parser.section("See your accounts")
-    option("--list", action="store_true", help="list all accounts and the day each was added")
-    option("--stats", action="store_true", help="show account counts per issuer")
+    option("--list", action="store_true", help="list all accounts, the day each was added, and how many there are")
     option("--watch", action="store_true", help="show all codes, refreshing every second")
 
     parser.section("Add and change accounts")

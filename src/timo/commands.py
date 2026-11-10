@@ -14,7 +14,6 @@ from timo.utils import (
     create_backup,
     fzf_args,
     generate_otp,
-    get_stats,
     list_backups,
     make_totp,
     merge_accounts,
@@ -286,7 +285,7 @@ def _pick_with_fzf(ctx, accounts, matches, prompt="Select OTP: ", show_date=Fals
     return index
 
 
-# --- list / stats / watch ----------------------------------------------------------
+# --- list / watch ----------------------------------------------------------
 
 def cmd_list(args, ctx):
     _, accounts = open_vault(ctx)
@@ -294,14 +293,16 @@ def cmd_list(args, ctx):
         for acc in accounts:
             ui.out(label(acc))
         return 0
-    _account_table(accounts)
+    issuers = len({acc["issuer"] for acc in accounts})
+    _account_table(accounts, total=("", msg.LIST_TOTAL, plural(len(accounts), "account"), ""),
+                   note=msg.LIST_ISSUERS.format(issuers=plural(issuers, "issuer")))
     return 0
 
 
-def _account_table(accounts):
+def _account_table(accounts, total=None, note=""):
     ui.table(msg.LIST_HEADERS,
              [(i, acc["issuer"], acc["name"], _date_added(acc)) for i, acc in enumerate(accounts, 1)],
-             right={0})
+             right={0}, total=total, note=note)
 
 
 def _date_added(acc):
@@ -313,15 +314,6 @@ def _date_added(acc):
         return datetime.fromisoformat(value).strftime("%Y-%m-%d")
     except ValueError:
         return value  # edited by hand: show it as it is
-
-
-def cmd_stats(args, ctx):
-    _, accounts = open_vault(ctx)
-    total, issuer_counts = get_stats(accounts)
-    ui.table(msg.STATS_HEADERS, issuer_counts.most_common(), right={1},
-             total=(msg.STATS_TOTAL, total),
-             note=msg.STATS_ISSUERS.format(issuers=plural(len(issuer_counts), "issuer")))
-    return 0
 
 
 def cmd_watch(args, ctx):

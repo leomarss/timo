@@ -56,12 +56,11 @@ COPIED = "copied"
 COPIED_CLEARS = "copied, clears in {seconds}s"
 BAD_CLEAR_AFTER_ENV = "{env} must be a whole number of seconds (0 = never clear)"
 
-# --- list / stats / watch ----------------------------------------------------------
+# --- list / watch ----------------------------------------------------------
 LIST_HEADERS = ("#", "Issuer", "Account", "Added")
 NO_DATE = "-"
-STATS_HEADERS = ("Issuer", "Accounts")
-STATS_TOTAL = "Total"
-STATS_ISSUERS = "({issuers})"
+LIST_TOTAL = "Total"
+LIST_ISSUERS = "({issuers})"
 WATCH_TITLE = "timo --watch"
 WATCH_SECONDS = "{seconds:2d}s"
 WATCH_EXIT = "Ctrl-C to exit"

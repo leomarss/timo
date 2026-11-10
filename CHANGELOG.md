@@ -4,6 +4,14 @@ All notable changes to timo are listed here. The format follows [Keep a Changelo
 
 ## [Unreleased]
 
+### Changed
+
+- `--list` ends with a total: how many accounts and issuers you have.
+
+### Removed
+
+- `--stats`: the total it showed is now at the bottom of `--list`.
+
 ## [2.0.1] - 2026-11-06
 
 ### Changed

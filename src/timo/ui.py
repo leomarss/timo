@@ -1,6 +1,6 @@
 """How timo shows things. The texts themselves live in messages.py.
 
-stdout gets what the user asked for: codes, lists, stats, and "✓" lines
+stdout gets what the user asked for: codes, lists, and "✓" lines
 confirming what was done. stderr gets everything else: errors ("✗"),
 warnings ("!") and notes (dimmed), so piping stdout stays clean.
 
